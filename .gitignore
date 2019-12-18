@@ -1,4 +1,5 @@
-*.vcxproj
-*.user
 /project/.vs/src/v16
 /project/x64/Debug
+*.exe
+*.exp
+*.lib
