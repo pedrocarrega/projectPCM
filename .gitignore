@@ -1,5 +1,4 @@
-/bin/
-/.vs
-/x64
 *.vcxproj
 *.user
+/project/.vs/src/v16
+/project/x64/Debug
