@@ -133,6 +133,7 @@ __global__ void calcWithoutAtomic(int* output, int graph_size, int k, int workPe
 
 	for (int x = i; x < i + workPerThread; x++)
 	{
+		
 		for (int y = j; y < j + workPerThread; y++)
 		{
 			if (x < graph_size && y < graph_size) {
@@ -146,15 +147,21 @@ __global__ void calcWithoutAtomic(int* output, int graph_size, int k, int workPe
 
 __global__ void sharedCalcWithoutAtomic(int* output, int graph_size, int k, const int workPerThread)
 {
-	const int workSize = (workPerThread * blockDim.x)^2;
+	//size_t workSize = (workPerThread * blockDim.x)^2;
 
-	//__shared__ int array[workSize][workSize];
+	//const int test = blockDim.x;
+	
+	__shared__ int array[10 * 11];
 	
 	int i = (blockIdx.x * blockDim.x + threadIdx.x) * workPerThread;
 	int j = (blockIdx.y * blockDim.y + threadIdx.y) * workPerThread;
 
 	for (int x = i; x < i + workPerThread; x++)
 	{
+		if (threadIdx.x == 0 && threadIdx.y == 0) {
+			array[blockDim.x * blockIdx.x] = D(x, k);
+		}
+		__syncthreads;
 		for (int y = j; y < j + workPerThread; y++)
 		{
 			if (x < graph_size && y < graph_size) {
@@ -197,7 +204,7 @@ void floyd_warshall_gpu(const int* graph, int graph_size, int* output) {
 	cudaDeviceProp prop;
 	cudaGetDeviceProperties(&prop, 0);
 
-	int NThreads = 8;
+	int NThreads = 10;
 	//for safety
 	if (NThreads > 32) {
 		NThreads = sqrt(prop.maxThreadsPerBlock);
@@ -209,6 +216,8 @@ void floyd_warshall_gpu(const int* graph, int graph_size, int* output) {
 	int maxThreadsPerAxis = maxBlocksPerAxis * NThreads;
 	int workPerThread = ((graph_size) / maxThreadsPerAxis) + 1;
 
+	fprintf(stderr, "work %d\n", workPerThread);
+
 	dim3 threads(NThreads, NThreads);
 	dim3 blocks(maxBlocksPerAxis, maxBlocksPerAxis);
 
@@ -217,7 +226,7 @@ void floyd_warshall_gpu(const int* graph, int graph_size, int* output) {
 	
 
 	for (int k = 0; k < graph_size; k++) {
-		calcWithoutAtomic <<<blocks, threads >> > (dev_a, graph_size, k, workPerThread);
+		calcWithoutAtomic <<<blocks, threads>>> (dev_a, graph_size, k, workPerThread);
 		//calcOnePosPerThread <<<dim3(GRAPH_SIZE/NThreads,GRAPH_SIZE/NThreads), dim3(NThreads,NThreads)>>>(dev_a, graph_size,k);
 		//calThreadPerColumn <<<b, t >>> (dev_a, graph_size, t * b, k);
 	}
