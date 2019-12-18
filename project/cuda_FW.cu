@@ -30,6 +30,8 @@ inline void gpuAssert(cudaError_t code, const char* file, int line, bool abort =
 
 #define INF 0x1fffffff
 
+
+//createGraph
 void generate_random_graph(int* output, int graph_size) {
 	int i, j;
 
@@ -53,15 +55,18 @@ void generate_random_graph(int* output, int graph_size) {
 	}
 }
 
+//
 __global__ void calcOnePosPerThread(int* output, int graph_size, int k)
 {
 	int i = (blockIdx.x * blockDim.x + threadIdx.x);
 	int j = (blockIdx.y * blockDim.y + threadIdx.y);
 
-	if (i < graph_size && j < graph_size) {
+	while (i < graph_size && j < graph_size) {
 		if (D(i, k) + D(k, j) < D(i, j)) {
 			D(i, j) = D(i, k) + D(k, j);
 		}
+		i += blockDim.x * gridDim.x;
+		j+= blockDim.y * gridDim.y;
 	}
 }
 
