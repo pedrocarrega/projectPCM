@@ -55,7 +55,7 @@ void generate_random_graph(int* output, int graph_size) {
 	}
 }
 
-//
+//calcOnePositionPerThread
 __global__ void calcOnePosPerThread(int* output, int graph_size, int k)
 {
 	int i = (blockIdx.x * blockDim.x + threadIdx.x);
@@ -143,6 +143,8 @@ __global__ void calcWithoutAtomic(int* output, int graph_size, int k, int workPe
 	}
 }
 
+
+//sequencial GPU
 __global__ void calculateSequencialGPU(int* output, int graph_size)
 {
 	int i, j, k;
@@ -178,6 +180,8 @@ void floyd_warshall_gpu(const int* graph, int graph_size, int* output) {
 		NThreads = sqrt(prop.maxThreadsPerBlock);
 	}
 
+	//int maxRegisterSize = prop.
+	int maxMemSize = prop.sharedMemPerBlock;
 	int maxBlocksPerAxis = sqrt(prop.multiProcessorCount * (prop.maxThreadsPerMultiProcessor / (NThreads * NThreads)));
 	int maxThreadsPerAxis = maxBlocksPerAxis * NThreads;
 	int workPerThread = ((graph_size) / maxThreadsPerAxis) + 1;
@@ -189,9 +193,9 @@ void floyd_warshall_gpu(const int* graph, int graph_size, int* output) {
 	int b = prop.multiProcessorCount * (prop.maxThreadsPerMultiProcessor / t);
 
 	for (int k = 0; k < graph_size; k++) {
-		//calcWithoutAtomic << <blocks, threads >> > (dev_a, graph_size, k, workPerThread);
+		calcWithoutAtomic << <blocks, threads >> > (dev_a, graph_size, k, workPerThread);
 		//calcOnePosPerThread<<<dim3(GRAPH_SIZE/NThreads,GRAPH_SIZE/NThreads), dim3(NThreads,NThreads)>>>(dev_a, graph_size,k);
-		calThreadPerColumn <<<b, t >>> (dev_a, graph_size, t * b, k);
+		//calThreadPerColumn <<<b, t >>> (dev_a, graph_size, t * b, k);
 	}
 	//calcWithAtomic << <blocks, threads >> > (dev_a, graph_size, workPerThread, maxBlocksPerAxis*maxBlocksPerAxis);
 
@@ -254,6 +258,8 @@ int main(int argc, char** argv) {
 	QueryPerformanceCounter(&end);
 	interval = (double)(end.QuadPart - start.QuadPart) / frequency.QuadPart;
 	fprintf(stderr, "%f seconds\n", interval);
+
+
 
 	if (memcmp(output_cpu, output_gpu, size) != 0) {
 		fprintf(stderr, "FAIL!\n");
