@@ -23,7 +23,8 @@ inline void gpuAssert(cudaError_t code, const char* file, int line, bool abort =
 	}
 }
 
-#define GRAPH_SIZE 1000
+#define GRAPH_SIZE 2000
+#define WORK_SIZE 11
 
 #define EDGE_COST(graph, graph_size, a, b) graph[a * graph_size + b]
 #define D(a, b) EDGE_COST(output, graph_size, a, b)
@@ -143,6 +144,28 @@ __global__ void calcWithoutAtomic(int* output, int graph_size, int k, int workPe
 	}
 }
 
+__global__ void sharedCalcWithoutAtomic(int* output, int graph_size, int k, const int workPerThread)
+{
+	const int workSize = (workPerThread * blockDim.x)^2;
+
+	//__shared__ int array[workSize][workSize];
+	
+	int i = (blockIdx.x * blockDim.x + threadIdx.x) * workPerThread;
+	int j = (blockIdx.y * blockDim.y + threadIdx.y) * workPerThread;
+
+	for (int x = i; x < i + workPerThread; x++)
+	{
+		for (int y = j; y < j + workPerThread; y++)
+		{
+			if (x < graph_size && y < graph_size) {
+				if (D(x, k) + D(k, y) < D(x, y)) {
+					D(x, y) = D(x, k) + D(k, y);
+				}
+			}
+		}
+	}
+}
+
 
 //sequencial GPU
 __global__ void calculateSequencialGPU(int* output, int graph_size)
@@ -191,10 +214,11 @@ void floyd_warshall_gpu(const int* graph, int graph_size, int* output) {
 
 	int t = 64;
 	int b = prop.multiProcessorCount * (prop.maxThreadsPerMultiProcessor / t);
+	
 
 	for (int k = 0; k < graph_size; k++) {
-		calcWithoutAtomic << <blocks, threads >> > (dev_a, graph_size, k, workPerThread);
-		//calcOnePosPerThread<<<dim3(GRAPH_SIZE/NThreads,GRAPH_SIZE/NThreads), dim3(NThreads,NThreads)>>>(dev_a, graph_size,k);
+		calcWithoutAtomic <<<blocks, threads >> > (dev_a, graph_size, k, workPerThread);
+		//calcOnePosPerThread <<<dim3(GRAPH_SIZE/NThreads,GRAPH_SIZE/NThreads), dim3(NThreads,NThreads)>>>(dev_a, graph_size,k);
 		//calThreadPerColumn <<<b, t >>> (dev_a, graph_size, t * b, k);
 	}
 	//calcWithAtomic << <blocks, threads >> > (dev_a, graph_size, workPerThread, maxBlocksPerAxis*maxBlocksPerAxis);
