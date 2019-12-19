@@ -126,7 +126,7 @@ __global__ void calcWithAtomic(int* output, int graph_size, int workPerThread, i
 	}
 }
 
-//Apenas com ValuesX passou de 5.90s -> 5.32s com o ValuesY passou de 5.32s -> 5.08s
+//Apenas com ValuesX passou de 5.90s -> 5.32s com o ValuesY passou de 5.32s -> 4.82s
 __global__ void calcWithoutAtomic(int* output, int graph_size, int k, int workPerThread)
 {
 	int i = (blockIdx.x * blockDim.x + threadIdx.x) * workPerThread;
@@ -148,11 +148,11 @@ __global__ void calcWithoutAtomic(int* output, int graph_size, int k, int workPe
 	{
 		if (x < graph_size) {
 			valuesX[xT][yT] = D(x, k);
-		}
+		}/*
 		if (threadIdx.x == 0 && threadIdx.y == 0) {
 			array[blockDim.x * blockIdx.x] = D(x, k);
 		}
-		__syncthreads;
+		__syncthreads;*/
 		for (int y = j; y < j + workPerThread; y++)
 		{
 			//values[threadX][threadY] = D(x, k);
@@ -212,7 +212,7 @@ void floyd_warshall_gpu(const int* graph, int graph_size, int* output) {
 	int maxThreadsPerAxis = maxBlocksPerAxis * NThreads;
 	int workPerThread = ((graph_size) / maxThreadsPerAxis) + 1;
 
-	fprintf(stderr, "work %d\n", workPerThread);
+	//fprintf(stderr, "work %d\n", workPerThread);
 
 	dim3 threads(NThreads, NThreads);
 	dim3 blocks(maxBlocksPerAxis, maxBlocksPerAxis);
@@ -292,6 +292,9 @@ int main(int argc, char** argv) {
 
 	if (memcmp(output_cpu, output_gpu, size) != 0) {
 		fprintf(stderr, "FAIL!\n");
+	}
+	else {
+		fprintf(stderr, "Verified!\n");
 	}
 
 	return 0;
