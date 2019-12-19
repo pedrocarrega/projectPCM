@@ -24,12 +24,15 @@ inline void gpuAssert(cudaError_t code, const char* file, int line, bool abort =
 }
 
 #define GRAPH_SIZE 2000
+#define WORK_SIZE 11
 
 #define EDGE_COST(graph, graph_size, a, b) graph[a * graph_size + b]
 #define D(a, b) EDGE_COST(output, graph_size, a, b)
 
 #define INF 0x1fffffff
 
+
+//createGraph
 void generate_random_graph(int* output, int graph_size) {
 	int i, j;
 
@@ -53,15 +56,18 @@ void generate_random_graph(int* output, int graph_size) {
 	}
 }
 
+//calcOnePositionPerThread
 __global__ void calcOnePosPerThread(int* output, int graph_size, int k)
 {
 	int i = (blockIdx.x * blockDim.x + threadIdx.x);
 	int j = (blockIdx.y * blockDim.y + threadIdx.y);
 
-	if (i < graph_size && j < graph_size) {
+	while (i < graph_size && j < graph_size) {
 		if (D(i, k) + D(k, j) < D(i, j)) {
 			D(i, j) = D(i, k) + D(k, j);
 		}
+		i += blockDim.x * gridDim.x;
+		j+= blockDim.y * gridDim.y;
 	}
 }
 
@@ -143,6 +149,10 @@ __global__ void calcWithoutAtomic(int* output, int graph_size, int k, int workPe
 		if (x < graph_size) {
 			valuesX[xT][yT] = D(x, k);
 		}
+		if (threadIdx.x == 0 && threadIdx.y == 0) {
+			array[blockDim.x * blockIdx.x] = D(x, k);
+		}
+		__syncthreads;
 		for (int y = j; y < j + workPerThread; y++)
 		{
 			//values[threadX][threadY] = D(x, k);
@@ -159,6 +169,8 @@ __global__ void calcWithoutAtomic(int* output, int graph_size, int k, int workPe
 	}
 }
 
+
+//sequencial GPU
 __global__ void calculateSequencialGPU(int* output, int graph_size)
 {
 	int i, j, k;
@@ -194,15 +206,20 @@ void floyd_warshall_gpu(const int* graph, int graph_size, int* output) {
 		NThreads = sqrt(prop.maxThreadsPerBlock);
 	}
 
+	//int maxRegisterSize = prop.
+	int maxMemSize = prop.sharedMemPerBlock;
 	int maxBlocksPerAxis = sqrt(prop.multiProcessorCount * (prop.maxThreadsPerMultiProcessor / (NThreads * NThreads)));
 	int maxThreadsPerAxis = maxBlocksPerAxis * NThreads;
 	int workPerThread = ((graph_size) / maxThreadsPerAxis) + 1;
+
+	fprintf(stderr, "work %d\n", workPerThread);
 
 	dim3 threads(NThreads, NThreads);
 	dim3 blocks(maxBlocksPerAxis, maxBlocksPerAxis);
 
 	int t = 64;
 	int b = prop.multiProcessorCount * (prop.maxThreadsPerMultiProcessor / t);
+	
 
 	for (int k = 0; k < graph_size; k++) {
 		calcWithoutAtomic << <blocks, threads >> > (dev_a, graph_size, k, workPerThread);
@@ -270,6 +287,8 @@ int main(int argc, char** argv) {
 	QueryPerformanceCounter(&end);
 	interval = (double)(end.QuadPart - start.QuadPart) / frequency.QuadPart;
 	fprintf(stderr, "%f seconds\n", interval);
+
+
 
 	if (memcmp(output_cpu, output_gpu, size) != 0) {
 		fprintf(stderr, "FAIL!\n");
