@@ -25,7 +25,7 @@ inline void gpuAssert(cudaError_t code, const char* file, int line, bool abort =
 
 #define GRAPH_SIZE 2000
 #define WORK_SIZE 11
-#define NTHREADS 10
+#define NTHREADS 1
 
 #define EDGE_COST(graph, graph_size, a, b) graph[a * graph_size + b]
 #define D(a, b) EDGE_COST(output, graph_size, a, b)
@@ -123,11 +123,11 @@ __global__ void calcWithAtomic(int* output, int graph_size, int workPerThread, i
 
 		k = k + 1;
 
-		if (threadIdx.x == 0 && threadIdx.y == 0) {
+		/*if (threadIdx.x == 0 && threadIdx.y == 0) {
 			atomicAdd(&barrier, 1);
 			//while ((atomicCAS(&barrier, numBlocks, numBlocks) % numBlocks) != 0);
 			while(barrier % numBlocks != 0);
-		}
+		}*/
 		__syncthreads();
 
 	}
@@ -142,8 +142,8 @@ __global__ void calcWithoutAtomic(int* output, int graph_size, int k, int workPe
 	int xT = threadIdx.x;
 	int yT = threadIdx.y;
 
-	__shared__ int valuesX[10][10];
-	__shared__ int valuesY[100][11];
+	__shared__ int valuesX[6][6];
+	__shared__ int valuesY[36][21];
 
 	int currT = xT * blockDim.x + yT;
 
@@ -252,18 +252,20 @@ void floyd_warshall_gpu(const int* graph, int graph_size, int* output) {
 	dim3 threads(NThreads, NThreads);
 	dim3 blocks(maxBlocksPerAxis, maxBlocksPerAxis);
 
+	printf("blockPerAxis = %d\n", maxBlocksPerAxis);
+
 	int t = 64;
 	int b = prop.multiProcessorCount * (prop.maxThreadsPerMultiProcessor / t);
 	
 	
-
+/*
 	for (int k = 0; k < graph_size; k++) {
 		calcWithoutAtomic <<<blocks, threads>>> (dev_a, graph_size, k, workPerThread);
 		//calcOnePosPerThread<<<dim3(GRAPH_SIZE/NThreads,GRAPH_SIZE/NThreads), dim3(NThreads,NThreads)>>>(dev_a, graph_size,k);
 		//calThreadPerColumn <<<b, t >>> (dev_a, graph_size, t * b, k);
-	}
+	}*/
 	
-	//calcWithAtomic <<<blocks, threads>>> (dev_a, graph_size, workPerThread, maxBlocksPerAxis*maxBlocksPerAxis);
+	calcWithAtomic <<<blocks, threads>>> (dev_a, graph_size, workPerThread, maxBlocksPerAxis*maxBlocksPerAxis);
 
 	cudaError_t err = cudaMemcpy(output, dev_a, sizeof(int) * graph_size * graph_size, cudaMemcpyDeviceToHost);
 	gpuErrchk(err);
