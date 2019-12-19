@@ -169,6 +169,34 @@ __global__ void calcWithoutAtomic(int* output, int graph_size, int k, int workPe
 	}
 }
 
+__global__ void sharedCalcWithoutAtomic(int* output, int graph_size, int k, const int workPerThread)
+{
+	//size_t workSize = (workPerThread * blockDim.x)^2;
+
+	//const int test = blockDim.x;
+	
+	__shared__ int array[10 * 11];
+	
+	int i = (blockIdx.x * blockDim.x + threadIdx.x) * workPerThread;
+	int j = (blockIdx.y * blockDim.y + threadIdx.y) * workPerThread;
+
+	for (int x = i; x < i + workPerThread; x++)
+	{
+		if (threadIdx.x == 0 && threadIdx.y == 0) {
+			array[blockDim.x * blockIdx.x] = D(x, k);
+		}
+		__syncthreads;
+		for (int y = j; y < j + workPerThread; y++)
+		{
+			if (x < graph_size && y < graph_size) {
+				if (D(x, k) + D(k, y) < D(x, y)) {
+					D(x, y) = D(x, k) + D(k, y);
+				}
+			}
+		}
+	}
+}
+
 
 //sequencial GPU
 __global__ void calculateSequencialGPU(int* output, int graph_size)
