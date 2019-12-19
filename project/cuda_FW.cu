@@ -142,8 +142,8 @@ __global__ void calcWithoutAtomic(int* output, int graph_size, int k, int workPe
 	int xT = threadIdx.x;
 	int yT = threadIdx.y;
 
-	__shared__ int valuesX[6][6];
-	__shared__ int valuesY[36][21];
+	__shared__ int valuesX[10][10];
+	__shared__ int valuesY[100][11];
 
 	int currT = xT * blockDim.x + yT;
 
