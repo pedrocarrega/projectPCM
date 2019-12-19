@@ -256,14 +256,14 @@ void floyd_warshall_gpu(const int* graph, int graph_size, int* output) {
 	int b = prop.multiProcessorCount * (prop.maxThreadsPerMultiProcessor / t);
 	
 	
-/*
+
 	for (int k = 0; k < graph_size; k++) {
 		calcWithoutAtomic <<<blocks, threads>>> (dev_a, graph_size, k, workPerThread);
 		//calcOnePosPerThread<<<dim3(GRAPH_SIZE/NThreads,GRAPH_SIZE/NThreads), dim3(NThreads,NThreads)>>>(dev_a, graph_size,k);
 		//calThreadPerColumn <<<b, t >>> (dev_a, graph_size, t * b, k);
 	}
-	*/
-	calcWithAtomic <<<blocks, threads>>> (dev_a, graph_size, workPerThread, maxBlocksPerAxis*maxBlocksPerAxis);
+	
+	//calcWithAtomic <<<blocks, threads>>> (dev_a, graph_size, workPerThread, maxBlocksPerAxis*maxBlocksPerAxis);
 
 	cudaError_t err = cudaMemcpy(output, dev_a, sizeof(int) * graph_size * graph_size, cudaMemcpyDeviceToHost);
 	gpuErrchk(err);
