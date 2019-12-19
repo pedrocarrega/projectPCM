@@ -23,7 +23,7 @@ inline void gpuAssert(cudaError_t code, const char* file, int line, bool abort =
 	}
 }
 
-#define GRAPH_SIZE 1000
+#define GRAPH_SIZE 2000
 
 #define EDGE_COST(graph, graph_size, a, b) graph[a * graph_size + b]
 #define D(a, b) EDGE_COST(output, graph_size, a, b)
@@ -120,18 +120,39 @@ __global__ void calcWithAtomic(int* output, int graph_size, int workPerThread, i
 	}
 }
 
+//Apenas com ValuesX passou de 5.90s -> 5.32s com o ValuesY passou de 5.32s -> 5.08s
 __global__ void calcWithoutAtomic(int* output, int graph_size, int k, int workPerThread)
 {
 	int i = (blockIdx.x * blockDim.x + threadIdx.x) * workPerThread;
 	int j = (blockIdx.y * blockDim.y + threadIdx.y) * workPerThread;
+	//printf("xt = %d | yt = %d\n", threadIdx.x, threadIdx.y);
+	int xT = threadIdx.x;
+	int yT = threadIdx.y;
 
+	__shared__ int valuesX[8][8];
+	__shared__ int valuesY[64][28];
+
+	int currT = xT * blockDim.x + yT;
+
+	//printf("workPT %d , blockdim = %d ", workPerThread, blockDim.x);
+	/*
+	Por enquanto o valuesX faz ser um pouco mais rapido mas o valuesY faz ficar bastante mais lento, implementar com shared memory
+	*/
 	for (int x = i; x < i + workPerThread; x++)
 	{
+		if (x < graph_size) {
+			valuesX[xT][yT] = D(x, k);
+		}
 		for (int y = j; y < j + workPerThread; y++)
 		{
+			//values[threadX][threadY] = D(x, k);
+			//ky = D(k, y);
 			if (x < graph_size && y < graph_size) {
-				if (D(x, k) + D(k, y) < D(x, y)) {
-					D(x, y) = D(x, k) + D(k, y);
+				if (x == i) {
+					valuesY[currT][y - j] = D(k, y);
+				}
+				if (valuesX[xT][yT] + valuesY[currT][y - j] < D(x, y)) {
+					D(x, y) = valuesX[xT][yT] + valuesY[currT][y - j];
 				}
 			}
 		}
@@ -184,9 +205,9 @@ void floyd_warshall_gpu(const int* graph, int graph_size, int* output) {
 	int b = prop.multiProcessorCount * (prop.maxThreadsPerMultiProcessor / t);
 
 	for (int k = 0; k < graph_size; k++) {
-		//calcWithoutAtomic << <blocks, threads >> > (dev_a, graph_size, k, workPerThread);
+		calcWithoutAtomic << <blocks, threads >> > (dev_a, graph_size, k, workPerThread);
 		//calcOnePosPerThread<<<dim3(GRAPH_SIZE/NThreads,GRAPH_SIZE/NThreads), dim3(NThreads,NThreads)>>>(dev_a, graph_size,k);
-		calThreadPerColumn <<<b, t >>> (dev_a, graph_size, t * b, k);
+		//calThreadPerColumn <<<b, t >>> (dev_a, graph_size, t * b, k);
 	}
 	//calcWithAtomic << <blocks, threads >> > (dev_a, graph_size, workPerThread, maxBlocksPerAxis*maxBlocksPerAxis);
 
