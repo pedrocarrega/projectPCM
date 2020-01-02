@@ -1,7 +1,6 @@
 /project/.vs/src/v16
-/project/x64/Debug
+/project/x64
 *.exe
 *.exp
 *.lib
 *.out
-/project/x64/Release
