@@ -23,8 +23,8 @@ inline void gpuAssert(cudaError_t code, const char* file, int line, bool abort =
 	}
 }
 
-#define GRAPH_SIZE 2000
-#define WORK_SIZE 11
+#define GRAPH_SIZE 10000
+#define WORK_SIZE 51
 #define NTHREADS 10
 
 #define EDGE_COST(graph, graph_size, a, b) graph[a * graph_size + b]
@@ -129,23 +129,62 @@ __global__ void calcWithoutAtomic(int* output, int graph_size, int k, int workPe
 	int i = (blockIdx.x * blockDim.x + threadIdx.x) * workPerThread;
 	int j = (blockIdx.y * blockDim.y + threadIdx.y) * workPerThread;
 
-	int xk, ky;
+	//int xk, ky;
 
 	for (int x = i; x < i + workPerThread; x++)
 	{
-		xk = D(x, k);
+		//xk = D(x, k);
 		for (int y = j; y < j + workPerThread; y++)
 		{
-			ky = D(k, y);
+			//ky = D(k, y);
 			if (x < graph_size && y < graph_size) {
-				if (xk + ky < D(x, y)) {
-					D(x, y) = xk + ky;
+				if (D(x, k) + D(k, y) < D(x, y)) {
+					D(x, y) = D(x, k) + D(k, y);
 				}
 			}
 		}
 	}
 }
 
+
+__global__ void calcSharedWithAtomic(int* output, int graph_size, int workPerThread)
+{
+	int i = (blockIdx.x * blockDim.x + threadIdx.x) * workPerThread;
+	int j = (blockIdx.y * blockDim.y + threadIdx.y) * workPerThread;
+	int k = 0;
+	int numBlocks = gridDim.x * gridDim.y;
+	
+	__shared__ int valuesX[NTHREADS][NTHREADS];
+	__shared__ int valuesY[NTHREADS][NTHREADS][WORK_SIZE];
+
+	while (k < graph_size) {
+		for (int x = i; x < i + workPerThread; x++)
+		{
+			if (x < graph_size) {
+				valuesX[threadIdx.x][threadIdx.y] = D(x, k);
+			}
+			for (int y = j; y < j + workPerThread; y++)
+			{
+				if (x < graph_size && y < graph_size) {
+					if (x == i) {
+						valuesY[threadIdx.x][threadIdx.y][y-j] = D(k, y);
+					}
+					if (valuesX[threadIdx.x][threadIdx.y] + valuesY[threadIdx.x][threadIdx.y][y - j] < D(x, y)) {
+						D(x, y) = valuesX[threadIdx.x][threadIdx.y] + valuesY[threadIdx.x][threadIdx.y][y - j];
+					}
+				}
+			}
+		}
+
+		k = k + 1;
+
+		if (threadIdx.x == 0 && threadIdx.y == 0) {
+			while (barrier % numBlocks != 0);
+		}
+		__syncthreads();
+
+	}
+}
 
 
 
@@ -261,26 +300,29 @@ void floyd_warshall_gpu(const int* graph, int graph_size, int* output) {
 	int maxThreadsPerAxis = maxBlocksPerAxis * NThreads;
 	int workPerThread = ((graph_size) / maxThreadsPerAxis) + 1;
 
-	fprintf(stderr, "work %d\nthreads %d\n", workPerThread, NThreads);
+	//fprintf(stderr, "work %d\nthreads %d\n", workPerThread, NThreads);
 
 	dim3 threads(NThreads, NThreads);
 	dim3 blocks(maxBlocksPerAxis, maxBlocksPerAxis);
 
-	printf("blockPerAxis = %d\n", maxBlocksPerAxis);
+	//printf("blockPerAxis = %d\n", maxBlocksPerAxis);
 
 	int t = 64;
 	int b = prop.multiProcessorCount * (prop.maxThreadsPerMultiProcessor / t);
 	
 	
+	
 	/*
 	for (int k = 0; k < graph_size; k++) {
-		calcSharedWithoutAtomic <<<blocks, threads>>> (dev_a, graph_size, k, workPerThread);
+		//calcSharedWithoutAtomic <<<blocks, threads>>> (dev_a, graph_size, k, workPerThread);
 		//calcWithoutAtomic <<<blocks, threads>>> (dev_a, graph_size, k, workPerThread);
-		//calcOnePosPerThread<<<dim3(GRAPH_SIZE/NThreads,GRAPH_SIZE/NThreads), dim3(NThreads,NThreads)>>>(dev_a, graph_size,k);
+		//calcOnePosPerThread <<<dim3(GRAPH_SIZE/NThreads,GRAPH_SIZE/NThreads), dim3(NThreads,NThreads)>>>(dev_a, graph_size,k);
 		//calThreadPerColumn <<<b, t >>> (dev_a, graph_size, t * b, k);
-	}*/
+	}
+	*/
 	
-	calcWithAtomic <<<blocks, threads>>> (dev_a, graph_size, workPerThread, maxBlocksPerAxis*maxBlocksPerAxis);
+	//calcWithAtomic <<<blocks, threads>>> (dev_a, graph_size, workPerThread);
+	calcSharedWithAtomic <<<blocks, threads >> > (dev_a, graph_size, workPerThread);
 
 	cudaError_t err = cudaMemcpy(output, dev_a, sizeof(int) * graph_size * graph_size, cudaMemcpyDeviceToHost);
 	gpuErrchk(err);
