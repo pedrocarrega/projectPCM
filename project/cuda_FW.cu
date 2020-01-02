@@ -7,7 +7,7 @@
 #include <cuda_runtime_api.h>
 #include <device_launch_parameters.h>
 #include <math.h>
-//#include <Windows.h>
+#include <Windows.h>
 //for __syncthreads()
 #ifndef __CUDACC__ 
 #define __CUDACC__
@@ -25,7 +25,7 @@ inline void gpuAssert(cudaError_t code, const char* file, int line, bool abort =
 
 #define GRAPH_SIZE 2000
 #define WORK_SIZE 11
-#define NTHREADS 1
+#define NTHREADS 10
 
 #define EDGE_COST(graph, graph_size, a, b) graph[a * graph_size + b]
 #define D(a, b) EDGE_COST(output, graph_size, a, b)
@@ -94,11 +94,12 @@ __global__ void calThreadPerColumn(int* output, const int graph_size, int numThr
 
 __device__ int barrier = 0;
 
-__global__ void calcWithAtomic(int* output, int graph_size, int workPerThread, int numBlocks)
+__global__ void calcWithAtomic(int* output, int graph_size, int workPerThread)
 {
 	int i = (blockIdx.x * blockDim.x + threadIdx.x) * workPerThread;
 	int j = (blockIdx.y * blockDim.y + threadIdx.y) * workPerThread;
 	int k = 0;
+	int numBlocks = gridDim.x * gridDim.y;
 
 	while (k < graph_size) {
 		for (int x = i; x < i + workPerThread; x++)
@@ -113,21 +114,11 @@ __global__ void calcWithAtomic(int* output, int graph_size, int workPerThread, i
 			}
 		}
 
-		/*
-		if (threadIdx.x == 0 && threadIdx.y == 0) {
-			atomicAdd(&barrier, 1);
-		}
-		*/
-		
-		
-
 		k = k + 1;
 
-		/*if (threadIdx.x == 0 && threadIdx.y == 0) {
-			atomicAdd(&barrier, 1);
-			//while ((atomicCAS(&barrier, numBlocks, numBlocks) % numBlocks) != 0);
-			while(barrier % numBlocks != 0);
-		}*/
+		if (threadIdx.x == 0 && threadIdx.y == 0) {
+			while (barrier % numBlocks != 0);
+		}
 		__syncthreads();
 
 	}
@@ -247,7 +238,7 @@ void floyd_warshall_gpu(const int* graph, int graph_size, int* output) {
 	int maxThreadsPerAxis = maxBlocksPerAxis * NThreads;
 	int workPerThread = ((graph_size) / maxThreadsPerAxis) + 1;
 
-	//fprintf(stderr, "work %d\nthreads %d\n", workPerThread, NThreads);
+	fprintf(stderr, "work %d\nthreads %d\n", workPerThread, NThreads);
 
 	dim3 threads(NThreads, NThreads);
 	dim3 blocks(maxBlocksPerAxis, maxBlocksPerAxis);
@@ -289,12 +280,12 @@ void floyd_warshall_cpu(const int* graph, int graph_size, int* output) {
 }
 
 int main(int argc, char** argv) {
-/*
-	long frequency;
-	long start;
-	long end;
+
+	LARGE_INTEGER frequency;
+	LARGE_INTEGER start;
+	LARGE_INTEGER end;
 	double interval;
-*/
+
 	int* graph, * output_cpu, * output_gpu;
 	int size;
 
@@ -313,20 +304,20 @@ int main(int argc, char** argv) {
 	generate_random_graph(graph, GRAPH_SIZE);
 
 	fprintf(stderr, "running on cpu...\n");
-	//QueryPerformanceFrequency(&frequency);
-	//QueryPerformanceCounter(&start);
+	QueryPerformanceFrequency(&frequency);
+	QueryPerformanceCounter(&start);
 	floyd_warshall_cpu(graph, GRAPH_SIZE, output_cpu);
-	//QueryPerformanceCounter(&end);
-	//interval = (double)(end.QuadPart - start.QuadPart) / frequency.QuadPart;
-	//fprintf(stderr, "%f seconds\n", interval);
+	QueryPerformanceCounter(&end);
+	interval = (double)(end.QuadPart - start.QuadPart) / frequency.QuadPart;
+	fprintf(stderr, "%f seconds\n", interval);
 
 	fprintf(stderr, "running on gpu...\n");
-	//QueryPerformanceFrequency(&frequency);
-	//QueryPerformanceCounter(&start);
+	QueryPerformanceFrequency(&frequency);
+	QueryPerformanceCounter(&start);
 	floyd_warshall_gpu(graph, GRAPH_SIZE, output_gpu);
-	//QueryPerformanceCounter(&end);
-	//interval = (double)(end.QuadPart - start.QuadPart) / frequency.QuadPart;
-	//fprintf(stderr, "%f seconds\n", interval);
+	QueryPerformanceCounter(&end);
+	interval = (double)(end.QuadPart - start.QuadPart) / frequency.QuadPart;
+	fprintf(stderr, "%f seconds\n", interval);
 
 
 

@@ -4,3 +4,4 @@
 *.exp
 *.lib
 *.out
+/project/x64/Release
