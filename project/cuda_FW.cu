@@ -124,8 +124,33 @@ __global__ void calcWithAtomic(int* output, int graph_size, int workPerThread)
 	}
 }
 
-//Apenas com ValuesX passou de 5.90s -> 5.32s com o ValuesY passou de 5.32s -> 4.82s
 __global__ void calcWithoutAtomic(int* output, int graph_size, int k, int workPerThread)
+{
+	int i = (blockIdx.x * blockDim.x + threadIdx.x) * workPerThread;
+	int j = (blockIdx.y * blockDim.y + threadIdx.y) * workPerThread;
+
+	int xk, ky;
+
+	for (int x = i; x < i + workPerThread; x++)
+	{
+		xk = D(x, k);
+		for (int y = j; y < j + workPerThread; y++)
+		{
+			ky = D(k, y);
+			if (x < graph_size && y < graph_size) {
+				if (xk + ky < D(x, y)) {
+					D(x, y) = xk + ky;
+				}
+			}
+		}
+	}
+}
+
+
+
+
+//Apenas com ValuesX passou de 5.90s -> 5.32s com o ValuesY passou de 5.32s -> 4.82s
+__global__ void calcSharedWithoutAtomic(int* output, int graph_size, int k, int workPerThread)
 {
 	int i = (blockIdx.x * blockDim.x + threadIdx.x) * workPerThread;
 	int j = (blockIdx.y * blockDim.y + threadIdx.y) * workPerThread;
@@ -133,8 +158,8 @@ __global__ void calcWithoutAtomic(int* output, int graph_size, int k, int workPe
 	int xT = threadIdx.x;
 	int yT = threadIdx.y;
 
-	__shared__ int valuesX[6][6];
-	__shared__ int valuesY[36][21];
+	__shared__ int valuesX[NTHREADS][NTHREADS];
+	__shared__ int valuesY[NTHREADS*NTHREADS][WORK_SIZE];
 
 	int currT = xT * blockDim.x + yT;
 
@@ -144,6 +169,7 @@ __global__ void calcWithoutAtomic(int* output, int graph_size, int k, int workPe
 	*/
 	for (int x = i; x < i + workPerThread; x++)
 	{
+		
 		if (x < graph_size) {
 			valuesX[xT][yT] = D(x, k);
 		}/*
@@ -167,6 +193,7 @@ __global__ void calcWithoutAtomic(int* output, int graph_size, int k, int workPe
 	}
 }
 
+/*
 __global__ void sharedCalcWithoutAtomic(int* output, int graph_size, int k, const int workPerThread)
 {
 	//size_t workSize = (workPerThread * blockDim.x)^2;
@@ -194,6 +221,7 @@ __global__ void sharedCalcWithoutAtomic(int* output, int graph_size, int k, cons
 		}
 	}
 }
+*/
 
 
 //sequencial GPU
@@ -210,11 +238,6 @@ __global__ void calculateSequencialGPU(int* output, int graph_size)
 			}
 		}
 	}
-}
-
-__global__ void calculateUsingSharedMemoryGPU(int* output, int graph_size)
-{
-
 }
 
 void floyd_warshall_gpu(const int* graph, int graph_size, int* output) {
@@ -249,9 +272,10 @@ void floyd_warshall_gpu(const int* graph, int graph_size, int* output) {
 	int b = prop.multiProcessorCount * (prop.maxThreadsPerMultiProcessor / t);
 	
 	
-/*
+	/*
 	for (int k = 0; k < graph_size; k++) {
-		calcWithoutAtomic <<<blocks, threads>>> (dev_a, graph_size, k, workPerThread);
+		calcSharedWithoutAtomic <<<blocks, threads>>> (dev_a, graph_size, k, workPerThread);
+		//calcWithoutAtomic <<<blocks, threads>>> (dev_a, graph_size, k, workPerThread);
 		//calcOnePosPerThread<<<dim3(GRAPH_SIZE/NThreads,GRAPH_SIZE/NThreads), dim3(NThreads,NThreads)>>>(dev_a, graph_size,k);
 		//calThreadPerColumn <<<b, t >>> (dev_a, graph_size, t * b, k);
 	}*/
