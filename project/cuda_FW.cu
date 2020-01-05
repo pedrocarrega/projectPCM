@@ -23,8 +23,8 @@ inline void gpuAssert(cudaError_t code, const char* file, int line, bool abort =
 	}
 }
 
-#define GRAPH_SIZE 10000
-#define WORK_SIZE 51
+#define GRAPH_SIZE 5000
+#define WORK_SIZE 26
 #define NTHREADS 10
 
 #define EDGE_COST(graph, graph_size, a, b) graph[a * graph_size + b]
@@ -186,9 +186,47 @@ __global__ void calcSharedWithAtomic(int* output, int graph_size, int workPerThr
 	}
 }
 
+__global__ void calcSIMDSharedWithAtomic(int* output, int graph_size, int workPerThread)
+{
+	int i = (blockIdx.x * blockDim.x + threadIdx.x) * workPerThread;
+	int j = (blockIdx.y * blockDim.y + threadIdx.y) * workPerThread;
+	int k = 0;
+	int numBlocks = gridDim.x * gridDim.y;
+
+	__shared__ int valuesX[NTHREADS][NTHREADS];
+	__shared__ int valuesY[NTHREADS][NTHREADS][WORK_SIZE];
+
+	while (k < graph_size) {
+		for (int x = i; x < i + workPerThread; x++)
+		{
+			if (x < graph_size) {
+				valuesX[threadIdx.x][threadIdx.y] = D(x, k);
+			}
+			for (int y = j; y < j + workPerThread; y++)
+			{
+				if (x < graph_size && y < graph_size) {
+					if (x == i) {
+						valuesY[threadIdx.x][threadIdx.y][y - j] = D(k, y);
+					}
+					if (valuesX[threadIdx.x][threadIdx.y] + valuesY[threadIdx.x][threadIdx.y][y - j] < D(x, y)) {
+						D(x, y) = valuesX[threadIdx.x][threadIdx.y] + valuesY[threadIdx.x][threadIdx.y][y - j];
+					}
+				}
+			}
+		}
+
+		k = k + 1;
+
+		if (threadIdx.x == 0 && threadIdx.y == 0) {
+			while (barrier % numBlocks != 0);
+		}
+		__syncthreads();
+
+	}
+}
 
 
-//Apenas com ValuesX passou de 5.90s -> 5.32s com o ValuesY passou de 5.32s -> 4.82s
+
 __global__ void calcSharedWithoutAtomic(int* output, int graph_size, int k, int workPerThread)
 {
 	int i = (blockIdx.x * blockDim.x + threadIdx.x) * workPerThread;
@@ -310,7 +348,7 @@ void floyd_warshall_gpu(const int* graph, int graph_size, int* output) {
 	int t = 64;
 	int b = prop.multiProcessorCount * (prop.maxThreadsPerMultiProcessor / t);
 	
-	
+	//calculateSequencialGPU << <1, 1 >> > (dev_a, graph_size);
 	
 	/*
 	for (int k = 0; k < graph_size; k++) {
@@ -322,7 +360,8 @@ void floyd_warshall_gpu(const int* graph, int graph_size, int* output) {
 	*/
 	
 	//calcWithAtomic <<<blocks, threads>>> (dev_a, graph_size, workPerThread);
-	calcSharedWithAtomic <<<blocks, threads >> > (dev_a, graph_size, workPerThread);
+	calcSharedWithAtomic <<<blocks, threads >>> (dev_a, graph_size, workPerThread);
+	//calcSIMDSharedWithAtomic <<<blocks, threads >>> (dev_a, graph_size, workPerThread);
 
 	cudaError_t err = cudaMemcpy(output, dev_a, sizeof(int) * graph_size * graph_size, cudaMemcpyDeviceToHost);
 	gpuErrchk(err);
@@ -372,7 +411,7 @@ int main(int argc, char** argv) {
 	fprintf(stderr, "running on cpu...\n");
 	QueryPerformanceFrequency(&frequency);
 	QueryPerformanceCounter(&start);
-	floyd_warshall_cpu(graph, GRAPH_SIZE, output_cpu);
+	//floyd_warshall_cpu(graph, GRAPH_SIZE, output_cpu);
 	QueryPerformanceCounter(&end);
 	interval = (double)(end.QuadPart - start.QuadPart) / frequency.QuadPart;
 	fprintf(stderr, "%f seconds\n", interval);
