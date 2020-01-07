@@ -1,6 +1,8 @@
-/project/.vs/src/v16
+/project/.vs
 /project/x64
 *.exe
 *.exp
 *.lib
 *.out
+/template/code
+/template/samplepaper.synctex.gz
