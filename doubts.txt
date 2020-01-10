@@ -5,3 +5,4 @@ Há __global__ variables;
 Podemos afirmar k a matriz é quadrada;
 Dar contexto, ou assumir k o leitor ja sabe as coisas;
 Nao falamos de memory banks visto k na nossa implementacao esta fora do nosso controlo;
+Implementacao insuficiente, explicar pk melhora;
