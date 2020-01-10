@@ -85,10 +85,17 @@ and \textit{\_\_device\_\_} is a function that is called by the GPU to be run by
 This \dots can also be used to initialize a global variable on the GPU.
 
 Second, the syntax of the call of a GPU function also differs. Kernels work on a grid basis, and such, you need to indicate the grid your program will be working on. 
+That indication is made by placing
+\begin{math} <<< X, Y >>> \end{math}
+after the name of the function, where X represents the number of blocks to be used and Y the number of threads to be used per block, respectively. 
 
+Having copied our graph to the GPU memory, we call our kernel with one block and one thread per block, 
+Inside our GPU function we apply the same programing logic that was applied for the sequential CPU version of the Floyd-Warshall problem. 
+We create 3 \textit{for} cycles to iterate through our graph and compute our problem.
 
 
 \subsection{Parallel GPU}
+
 
 \subsection{Atomic GPU}
 
