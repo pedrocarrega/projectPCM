@@ -68,7 +68,7 @@ __global__ void calcOnePosPerThread(int* output, int graph_size, int k)
 			D(i, j) = D(i, k) + D(k, j);
 		}
 		i += blockDim.x * gridDim.x;
-		j+= blockDim.y * gridDim.y;
+		j += blockDim.y * gridDim.y;
 	}
 }
 

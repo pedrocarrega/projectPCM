@@ -111,7 +111,13 @@ and so our kernel call will look like: \newline\small{\textit{parallelGPU}
 \begin{math} >>> \end{math}}. \newline
 Where GRAPH\_Size is the size of our graph and NThreads the number of threads we decided to use.
 
-
+Regarding the implementation of our function, we have to change it completely.
+The kernel is now called K times by the CPU, where K goes from 0 to GRAPH\_SIZE, 
+each thread will now be attributed two coordinates determined by their coordinates in the 2D grid. 
+If the coordinates are withing the scope of the problem they will try to compute the shortest path between X to Y, 
+using the value of K provided by the CPU when the kernel is called, updating the value if needed.
+In order to improve performance, to the values of X and Y are added the block dimension multiplied by the dimension of the grid.
+After, if the coordinates are still within the scope of the problem, the thread will compute again using the new coordinates.%compute? 
 
 \subsection{Work Load}
 How the partition the work load for each thread may have a big impact on the performance of our solution. 
