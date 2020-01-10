@@ -66,7 +66,7 @@ of some problems we started by implementing our problem in the CPU so we could u
 %nao sei se devia por este paragrafo abaixo
 
 This solution will only use one thread of the CPU as the purpose of this paper is to demonstrate the impact of the improvements that can be made on the GPGPU.
-The graph we will be using for the Floyd-Warshall problem will be a two dimensional graph, in another words, a 2d grid.
+The graph we will be using for the Floyd-Warshall problem will be a two dimensional graph, in another words, a 2D grid.
 With that in mind, we by creating 3 \textit{for} cycles each will start at 0 and will iterate a number of times corresponding to the size of the graph.
 The second and third cycle will correspond to the X and Y coordinates, respectively, 
 while the first cycle will match an intermediate point for which the shortest path will be computed.
@@ -95,9 +95,33 @@ We create 3 \textit{for} cycles to iterate through our graph and compute our pro
 
 
 \subsection{Parallel GPU}
+Using a single thread to compute a problem on the GPU goes against it's strengths. 
+Due to the low core clock speed, the strength of the GPU comes from it's high thread count being able to compute multiple values at the same time. 
+
+When running a function parallel on the GPU each thread will run it's own instance of that same function, 
+in other words, the implementation of the function now needs to take into consideration how we partition the work load for each thread. 
+Having decided the number of threads per blocks we want to use, the most common way to split the work load is to 
+use that number to divide the size of our problem, this way obtaining the number of blocks we are going to use to compute our problem. 
+
+Obviously we are going to follow that same logic, but seeing that our problem uses a 2D grid, 
+applying a 2D grid to our blocks and threads. Such can be made using \textit{dim3()} \dots, 
+and so our kernel call will look like: \newline\small{\textit{parallelGPU}
+\begin{math} <<< \end{math}
+\textit{dim3(GRAPH\_SIZE/NThreads,GRAPH\_SIZE/NThreads),\newline dim3(NThreads,NThreads)}
+\begin{math} >>> \end{math}}. \newline
+Where GRAPH\_Size is the size of our graph and NThreads the number of threads we decided to use.
 
 
-\subsection{Atomic GPU}
+
+\subsection{Work Load}
+How the partition the work load for each thread may have a big impact on the performance of our solution. 
+
+To use the major strength of the GPU we have to decide how to partition the work each thread will do. 
+Ideally we would use the lowest number of blocks possible, allowing use of shared memory and block synchronization, but we getting ahead of ourselves %use this cheeky line?
+To show the importance of using a correct work load we will implement
+
+\subsection{Synchronization}
+
 
 \subsection{Shared Memory}
 
