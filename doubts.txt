@@ -1,0 +1,5 @@
+Duvidas:
+
+Termo correto para "__global__";
+Há __global__ variables;
+Podemos afirmar k a matriz é quadrada;

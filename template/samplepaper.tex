@@ -64,8 +64,9 @@ As an example, I would detail how I implemented the phaser in the genetic algori
 In order to demonstrate the effectiveness of the usage of GPGPUs in the processing 
 of some problems we started by implementing our problem in the CPU so we could use the results as a reference point to our others solutions.
 %nao sei se devia por este paragrafo abaixo
+
 This solution will only use one thread of the CPU as the purpose of this paper is to demonstrate the impact of the improvements that can be made on the GPGPU.
-The graph we will be using for the Floyd-Warshall problem will be a two dimensional graph, in another words, a matrix.
+The graph we will be using for the Floyd-Warshall problem will be a two dimensional graph, in another words, a 2d grid.
 With that in mind, we by creating 3 \textit{for} cycles each will start at 0 and will iterate a number of times corresponding to the size of the graph.
 The second and third cycle will correspond to the X and Y coordinates, respectively, 
 while the first cycle will match an intermediate point for which the shortest path will be computed.
@@ -74,6 +75,17 @@ Inside the last cycle it will be compared the direct distance of X to Y with the
 of X to K and K to Y, in case the latter is smaller the distance of X to Y is updated with the value of the addition.
 
 \subsection{Sequential GPU}
+To start our learning of how to program in the GPU we will start by doing the most basic implementation possible, 
+one thread computing the entirety of the Floyd-Warshall problem.
+GPU functions work like any other CPU functions barring two simple differences. 
+
+First, a GPU function has either the \textit{\_\_global\_\_} or the \textit{\_\_device\_\_} \dots%k usar aqui? tag? keyword?
+where \textit{\_\_global\_\_} is a function that will be called by the CPU but run on the GPU 
+and \textit{\_\_device\_\_} is a function that is called by the GPU to be run by the GPU. 
+This \dots can also be used to initialize a global variable on the GPU.
+
+Second, the syntax of the call of a GPU function also differs. Kernels work on a grid basis, and such, you need to indicate the grid your program will be working on. 
+
 
 
 \subsection{Parallel GPU}
