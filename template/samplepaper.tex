@@ -59,6 +59,29 @@ In this section you can talk about details of how you implemented your approach.
 
 As an example, I would detail how I implemented the phaser in the genetic algorithm, or how I implemented parallel mergesort on ForkJoin. Another aspect could be how to organize your arrays to minimize overhead in recursive calls.
 
+\section{Versions}
+\subsection{Sequential CPU}
+In order to demonstrate the effectiveness of the usage of GPGPUs in the processing 
+of some problems we started by implementing our problem in the CPU so we could use the results as a reference point to our others solutions.
+%nao sei se devia por este paragrafo abaixo
+This solution will only use one thread of the CPU as the purpose of this paper is to demonstrate the impact of the improvements that can be made on the GPGPU.
+The graph we will be using for the Floyd-Warshall problem will be a two dimensional graph, in another words, a matrix.
+With that in mind, we by creating 3 \textit{for} cycles each will start at 0 and will iterate a number of times corresponding to the size of the graph.
+The second and third cycle will correspond to the X and Y coordinates, respectively, 
+while the first cycle will match an intermediate point for which the shortest path will be computed.
+%nao sei se meto esta ultima parte.
+Inside the last cycle it will be compared the direct distance of X to Y with the addition of the distances 
+of X to K and K to Y, in case the latter is smaller the distance of X to Y is updated with the value of the addition.
+
+\subsection{Sequential GPU}
+
+
+\subsection{Parallel GPU}
+
+\subsection{Atomic GPU}
+
+\subsection{Shared Memory}
+
 
 \section{Evaluation}
 
