@@ -8,3 +8,4 @@ Nao falamos de memory banks visto k na nossa implementacao esta fora do nosso co
 Implementacao insuficiente, explicar pk melhora;
 Se os paremetros k sao passados po kernel se memoria e alocada automaticamente;
 Amount of shared of memory varia com diferentes GPUs;
+So ha atomic e syncthreads;
