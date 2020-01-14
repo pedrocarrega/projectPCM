@@ -115,15 +115,32 @@ Where GRAPH\_Size is the size of our graph and NThreads the number of threads we
 Regarding the implementation of our function, we have to change it completely.
 The kernel is now called K times by the CPU, where K goes from 0 to GRAPH\_SIZE, 
 each thread will now be attributed two coordinates determined by their coordinates in the 2D grid. 
-If the coordinates are withing the scope of the problem they will try to compute the shortest path between X to Y, 
-using the value of K provided by the CPU when the kernel is called, updating the value if needed.
-In order to improve performance, to the values of X and Y are added the block dimension multiplied by the dimension of the grid.
-After, if the coordinates are still within the scope of the problem, the thread will compute again using the new coordinates.%compute? 
+If the coordinates are withing the scope of the problem they will try to compute the shortest path between X to Y, using the value of K provided by the CPU when the kernel is called, updating the value if needed. 
+%In order to improve performance, to the values of X and Y are added the block dimension multiplied by the dimension of the grid. After, if the coordinates are still within the scope of the problem, the thread will compute again using the new coordinates.%compute? 
 
 \subsection{Work Load}
 
 How we partition the work load for each thread may have a big impact on the performance of our solution. Like mentioned before, the major strength of the GPU is it's high thread count so that it can compute multiple values at the same time.
-
+During our research into the topic we came up with the following guidelines in order to optimize work load: %algo me melhor k "came up with"
+\begin{enumerate}
+	\item Every thread works the same amount
+	\item Use the most amount of threads possible
+	\item Avoid using the scheduler
+	\newline
+\end{enumerate}
+%nao gosto deste paragrafo
+1. Considering every thread follows the program counter of the block, meaning the thread is only allowed to compute a certain line when the block allows it.
+Threads with less work load might find themselves in a situation where they must sit idle waiting for others threads to catch up.
+This scenario is avoided by a correct split of the work load, making every thread in the same block be synchronized on the computation it needs to execute.
+\newline
+\newline
+%e deste
+2. Simply put, the more threads you have available to compute your problem the more you can divide your problem. A major cavite however is to not use more threads than those that are available on the GPU. When the number of threads used is bigger than those available the GPU scheduler begins to be involved a major overhead is added to the computation cutting a lot of the performance offered by the GPU.
+\newline
+\newline
+%ja disse k nao tou inspirado hj?
+3. Like mentioned before, using the GPU scheduler adds a major overhead to the computation, so it makes sense we try to avoid using it.
+One possible workaround, on a kernel call that uses loops and the problem is bigger than the number of threads offered by the GPU, is to increment the value of the coordinates variable by the product of the dimension of the block by the dimension of the grid. Doing this
 
 To use the major strength of the GPU we have to decide how to partition the work each thread will do. 
 Ideally we would use the lowest number of blocks possible, allowing use of shared memory and block synchronization, but we getting ahead of ourselves %use this cheeky line? 
