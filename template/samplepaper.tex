@@ -28,21 +28,86 @@ This paper was developed with the purpose to explain GPU programing and the impr
 %
 \section{Introduction}
 
-The purpose of this paper is to teach the basics of GPGPU programing. 
-The usage of GPUs is more and more common 
-The introduction should set the context for your project. Why is this topic relevant?
+The purpose of this paper is to teach the different improvements that can be made on GPGPU, showing the different improvements in each version so that the solution can perform 
 
-You should also define the scope of your project. You could design a software artifact that would end poverty and famine, but that is not realistic.
+even better taking advantage of the GPU optimizations. To demonstrate this, we used a well known problem that is the Floyd-Warshall algorithm. The algorithm calculates all the 
 
-For example, this document describes the structure your paper should have. Despite using the LNCS LaTeX template \footnote{LNCS is the official template for Europar 2019, in case you are interested.}, the formatting template is not relevant, only the content structure is relevant.
+possible paths between two points and saves the shortest path. It was choosen because it requires a enourmous ammout of computation to get the final result since it is has O
 
-Finally, you should define the goals of your project. For instance,
+(n^3) complexity. With a high ammout of entries that is, a big matrix and so it can be very demanding for the CPU. This is where the GPU benefits due to its high number of 
 
-\begin{itemize}
-	\item To propose a method for the parallelization of Genetic Algorithms
-	\item An implementation of such algorithm
-	\item The experimental evaluation of such method, with comparison with a sequential alternative.
-\end{itemize}
+threads.
+\newline
+For this paper all the examples will be in CUDA.
+\newline
+To make a method to be computed in the GPU you need to declare it has "__global__" so that it will run on the GPU when called in the CPU. Each kernel runs a "grid" which is the 
+
+group of blocks that are launched by the kernel, where each block is a set of threads. The grid can be represented as a one dimensional array, a two dimensional array and a 
+
+three dimensional array. This can be use to improve the mapping of threads to the work that each of them will do. 
+\newline
+When launching a kernel it has to be declared the number of threads per block and the number of blocks that are going to be used. It should be taken into consideration the fact 
+
+that blocks are composed of warps which are a set of 32 threads, so when declaring the number of blocks beeing used, it should be a multiple of 32 since all threads in a warp 
+
+run the exact same instruction, therefor if the number of threads in the blocks is not multiple of 32 there will be threads that are busy, waiting for the other threads in their 
+
+warp that are actually doing some work.
+\newline
+The composition of the kernel grid has a huge impact on the kernel performance since that we want to have the highest occuppancy of threads in the GPU, so this should be 
+
+considered when defining the number of blocks and number os threads per block.
+
+\newline
+It also needs to be considered that the GPU does not have access to the memory used by the CPU, so all pointers used as input for the GPU kernel will have to be allocated and 
+
+copied to the GPU global memory before executing it. The pointers of the memory that was allocated need to be passed through the parameters of the kernel so that it can be 
+
+manipulated by the GPU. In case of a primitive type, it can be passed only by the parameters of the kernel (i.e. int) and does not need to alocate memory on the gpu memory 
+
+manually(???????). After all the computations are done, the result should be acessible by the cpu so that it can copy back the result to the cpu and do what it needs with it. To 
+
+do that it needs to copy the result similarly to the oposite operation but this time from the device to the host. Then the memory that was allocated in the gpu memory should be 
+
+freed so there are no memory leaks just like in the cpu. In the next figure you can see an example of a input being copied to the GPU, the call of the kernel, the corresponding 
+
+composition of the grid which will be represented in the (NUMERO DA FIGURA COM A DISPOSICAO) and then the result being copied back to the cpu memory:
+\newline
+Exemplo de codigo: 
+\newline
+
+\begin{lstlisting}[language=Cuda, caption=Cuda example]
+
+//Consider the graph pointer a matrix of int with each entry with its corresponding value filled earlier and the same length on each axis
+//graph_size being the size of each axis of the matrix
+int* matrix_pointer_device;
+
+cudaMalloc(&matrix_pointer_device, sizeof(int) * graph_size * graph_size):
+
+//This will copy from the graph pointer to the matrix_pointer_device, that is copying the matrix in the cpu memory to the pointer with memory allocated in the gpu memory
+cudaMemCpy(matrix_pointer_device, graph, sizeof(int) * graph_size * graph_size, cudaMemcpyHostToDevice);
+
+//Defenition of the parameters that describe the kernel grid
+dim3 threads(16,32);//the number of threads per blocks shloud be multiple of 32
+dim3 blocks(4,2); // number of blocks in the grid
+
+//The number of total threads used by the kernel is equal to the total number of threads per block multiplied by the number of blocks used by the kernel.
+//Launch of the kernel
+handlesMatrixAndWritesResultInIt<<<blocks, threads>>>(graph_size, matrix_pointer_device);
+
+//Result being copied back to cpu memory
+cudaMemCpy(graph, matrix_pointer_device, sizeof(int) * graph_size * graph_size, cudaMemcpyDeviceToHost);
+
+//Freeing the gpu memory that was allocated before
+cudaFree(cudaMemcpyDeviceToHost);
+
+//Now the result is in graph since it was copied back to the original matrix.
+
+\end{lstlisting}
+
+\newline
+
+Imagem que mostra a disposição da grid conforme os parametros passados para o kernel (nr de blocos e threads por bloco compondo o kernel)
 
 
 \section{Background}
