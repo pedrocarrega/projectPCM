@@ -2,6 +2,7 @@
 
 \usepackage{graphicx}
 \usepackage{listings}
+\usepackage{comment}
 
 
 \begin{document}
@@ -28,22 +29,64 @@ This paper was developed with the purpose to explain GPU programing and the impr
 %
 \section{Introduction}
 
-The purpose of this paper is to teach the basics of GPGPU programing. 
-The usage of GPUs is more and more common 
-The introduction should set the context for your project. Why is this topic relevant?
+The purpose of this paper is to teach the different improvements that can be made on GPGPU, showing the different improvements in each version so that the solution can perform even better taking advantage of the GPU optimizations. To demonstrate this, we used a well known problem that is the Floyd-Warshall algorithm. The algorithm calculates all the possible paths between two points and saves the shortest path. It was chosen because it requires a enormous amount of computation to get the final result since it is has O$(n^{3})$ complexity. With a high amount of entries that is, a big matrix and so it can be very demanding for the CPU. This is where the GPU benefits due to its high number of threads.
+\newline
+For this paper all the examples will be in CUDA.
 
-You should also define the scope of your project. You could design a software artifact that would end poverty and famine, but that is not realistic.
+To make a method to be computed in the GPU you need to declare it has "\_\_global\_\_" so that it will run on the GPU when called in the CPU. Each kernel runs a "grid" which is the group of blocks that are launched by the kernel, where each block is a set of threads. The grid can be represented as a one dimensional array, a two dimensional array and a three dimensional array. This can be use to improve the mapping of threads to the work that each of them will do. 
 
-For example, this document describes the structure your paper should have. Despite using the LNCS LaTeX template \footnote{LNCS is the official template for Europar 2019, in case you are interested.}, the formatting template is not relevant, only the content structure is relevant.
+When launching a kernel it has to be declared the number of threads per block and the number of blocks that are going to be used. It should be taken into consideration the fact that blocks are composed of warps which are a set of 32 threads, so when declaring the number of blocks being used, it should be a multiple of 32 since all threads in a warp run the exact same instruction, therefor if the number of threads in the blocks is not multiple of 32 there will be threads that are busy, waiting for the other threads in their warp that are actually doing some work.
 
-Finally, you should define the goals of your project. For instance,
+The composition of the kernel grid has a huge impact on the kernel performance since that we want to have the highest occupancy of threads in the GPU, so this should be considered when defining the number of blocks and number os threads per block.
 
-\begin{itemize}
-	\item To propose a method for the parallelization of Genetic Algorithms
-	\item An implementation of such algorithm
-	\item The experimental evaluation of such method, with comparison with a sequential alternative.
-\end{itemize}
+It also needs to be considered that the GPU does not have access to the memory used by the CPU, so all pointers used as input for the GPU kernel will have to be allocated and copied to the GPU global memory before executing it. The pointers of the memory that was allocated need to be passed through the parameters of the kernel so that it can be manipulated by the GPU. In case of a primitive type, it can be passed only by the parameters of the kernel (i.e. int) and does not need to allocate memory on the gpu memory manually(???????). After all the computations are done, the result should be accessible by the cpu so that it can copy back the result to the cpu and do what it needs with it. To do that it needs to copy the result similarly to the opposite operation but this time from the device to the host. Then the memory that was allocated in the gpu memory should be freed so there are no memory leaks just like in the cpu. In the next figure you can see an example of a input being copied to the GPU, the call of the kernel, the corresponding composition of the grid which will be represented in the (NUMERO DA FIGURA COM A DISPOSICAO) and then the result being copied back to the cpu memory:
+\newline
+Exemplo de codigo: 
+\newline
 
+\begin{lstlisting}[language=C++, caption=Cuda example]
+
+//Consider the graph pointer a matrix of int with each entry 
+with its corresponding value filled earlier and the same length on each axis
+//graph_size being the size of each axis of the matrix
+int* matrix_pointer_device;
+
+cudaMalloc(&matrix_pointer_device, sizeof(int) * graph_size * graph_size):
+
+//This will copy from the graph pointer to the matrix_pointer_device, that is copying the matrix in the cpu memory to the pointer with memory allocated in the gpu memory
+cudaMemCpy(matrix_pointer_device, graph, sizeof(int) * graph_size * graph_size, cudaMemcpyHostToDevice);
+
+//Defenition of the parameters that describe the kernel grid
+dim3 threads(16,32);//the number of threads per blocks shloud be multiple of 32
+dim3 blocks(4,2); // number of blocks in the grid
+
+//The number of total threads used by the kernel is equal to the total number of threads per block multiplied by the number of blocks used by the kernel.
+//Launch of the kernel
+handlesMatrixAndWritesResultInIt<<<blocks, threads>>>(graph_size, matrix_pointer_device);
+
+//Result being copied back to cpu memory
+cudaMemCpy(graph, matrix_pointer_device, sizeof(int) * graph_size * graph_size, cudaMemcpyDeviceToHost);
+
+//Freeing the gpu memory that was allocated before
+cudaFree(cudaMemcpyDeviceToHost);
+
+//Now the result is in graph since it was copied back to the original matrix.
+
+\end{lstlisting}
+
+
+
+%Imagem que mostra a disposição da grid conforme os parametros passados para o kernel (nr de blocos e threads por bloco compondo o kernel)
+
+%-------------------- 
+
+%Será melhor explicar isto na parte de falar dos improvements???
+Each thread used in a kernel can acess the global memory of the GPU but the drawback is that the access speed to that memory is not ideal, to improve that each block has its set of shared memory which is available to all threads inside the block, this memory will be much faster but will be more limited in terms of capacity. Then there is the registry memory that is even faster, each thread having theirs but will be extremely limited in capacity.
+
+Each kernel runs on a "grid" which is composed of blocks and blocks being a group of threads. The grid can be represented in one, two or three dimensions. So the threads can be used as an array of threads, each thread with its own index, as a matrix of threads, where each threads has its X index and Y index, and as a three dimension array where each thread has a X, Y and Z index. This  This can be used to make the mapping of the problem easier.
+Each GPU kernel runs thousands of threads, threads need to be groupped in blocks, where each block will share a set of memory that is much faster then the global memory in the GPU. The group of all blocks are named as a "grid".
+In the hardware sense a warp is a set of 32 threads that all share the same code and follows the same exact execution. So it is important to understand for example if it is used only one thread, then 31 threads will be unavailable  since they belong to the same warp and will be waiting for the other thread to finish. So when declaring the number of threads per block it should be taken in consideration that it should be used a multiple of 32 so that no threads are wasted.
+Each kernel runs on a "grid"
 
 \section{Background}
 
@@ -164,7 +207,7 @@ We will be using \_\_syncthreads() so that the other threads await for the synch
 
 
 \subsection{Shared Memory}
-Shared memory is a type of memory that is on-chip, because of that it is much faster then global memory. In fact shared memory latency is roughly 
+Shared memory is a type of memory located on-chip, meaning it is much faster then global memory. In fact shared memory latency is roughly 
 100x lower than uncached global memory latency (provided that there are no bank conflicts between the threads). It is allocated per 
 thread block, so all threads in the block have access to the same shared memory. The size of memory that can be used is limited, it depends on the GPU
 used, so when using it be aware of the GPU limitations.
@@ -174,21 +217,20 @@ into L1 cache. This type of memory should be used every time it is possible, as 
 Considering that, it should always be taken into advantage the usage of both registry and shared memory. The registry variables are created when defining
 new variables inside of the kernel implementation, the shared memory are the variables that are declared also inside of the kernel but with \_\_shared\_\_.
 
-The following implementation follows the logic explained in a previous subsection, but now using shared memory to save entries that will be used
- multiple times, this way we avoid multiple reads from the global memory saving some time in each thread execution resulting in a better performance 
- of the GPU kernel.
+The following implementation follows the logic explained in a previous subsection, but now using shared memory to save entries that will be used 
+multiple times, this way we avoid multiple reads from the global memory saving some time in each thread execution resulting in a better performance of the GPU kernel.
 
- MOSTRAR IMPLEMENTACAO DO KERNEL QUE FIZEMOS
+MOSTRAR IMPLEMENTACAO DO KERNEL QUE FIZEMOS
 
- The logic in this implementation is that when iterating though a small part the matrix, some positions are being read multiple times, in this specific 
- example lets consider workPerTthread with the value 10, in this case each iteration of the outside loop will iterate over the Y axis the 10 times, when
- doing so the D(x,k) will not change, so by writing this value in the corresponding entry of the matrix in the shared memory we save some time. The logic
- in writing the D(k,y) is almost the same, when doing the first iteration of the outside loop, we will be reading from global memory all the possible 
- values of D(k,y) for that thread, by doing so it has an unnecessary overhead. To prevent that, we will have a shared three dimensional array, where the
- first two dimensions represent the thread position in the block, were each thread of the block will have each position and the third dimension will be 
- the diferent D(k,y) entries for that thread. Note that it should only be done in the first iteration of the outside loop as explained before.
-  In this case it needs to be three dimensional array since it is the inside loop, were in the D(x,k) improvement, we only need one position of the matrix
-  for each thread because that value will be updated at the begining of each iteration of the outside loop.
+The logic in this implementation is that when iterating though a small part the matrix, some positions are being read multiple times, in this specific 
+example lets consider workPerThread with the value 10, in this case each iteration of the outside loop will iterate over the Y axis the 10 times, when 
+doing so the D(x,k) will not change, so by writing this value in the corresponding entry of the matrix in the shared memory we save some time. The logic 
+in writing the D(k,y) is almost the same, when doing the first iteration of the outside loop, we will be reading from global memory all the possible 
+values of D(k,y) for that thread, by doing so it has an unnecessary overhead. To prevent that, we will have a shared three dimensional array, where the 
+first two dimensions represent the thread position in the block, were each thread of the block will have each position and the third dimension will be 
+the different D(k,y) entries for that thread. Note that it should only be done in the first iteration of the outside loop as explained before. 
+In this case it needs to be three dimensional array since it is the inside loop, were in the D(x,k) improvement, we only need one position of the matrix 
+for each thread because that value will be updated at the beginning of each iteration of the outside loop.
 
 \section{Evaluation}
 
