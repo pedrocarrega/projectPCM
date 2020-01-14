@@ -157,7 +157,31 @@ Considering the Floyd-Warshall only has one barrier point, we can use synchroniz
 First we define a global atomic variable on the GPU so that we can have GPU wide synchronization
 
 \subsection{Shared Memory}
+Shared memory is a type of memory that is on-chip, because of that it is much faster then global memory. In fact shared memory latency is roughly 
+100x lower than uncached global memory latency (provided that there are no bank conflicts between the threads). It is allocated per 
+thread block, so all threads in the block have access to the same shared memory. The size of memory that can be used is limited, it depends on the GPU
+used, so when using it be aware of the GPU limitations.
+Each thread has a local storage which is on-chip as the shared memory, but it is even faster due to being implemented as registers with spill over
+into L1 cache. This type of memory should be used everytime it is possible, as the shared memory it is limited but even more.
 
+Considering that, it should always be taken into advantage the usage of both registry and shared memory. The registry variables are created when defining
+new variables inside of the kernel implementation, the shared memory are the variables that are declared also inside of the kernel but with \_\_shared\_\_.
+
+The following implementation follows the logic explained in a previous subsection, but now using shared memory to save entries that will be used
+ multiple times, this way we avoid multiple reads from the global memory saving some time in each thread execution resulting in a better performance 
+ of the GPU kernel.
+
+ MOSTRAR IMPLEMENTACAO DO KERNEL QUE FIZEMOS
+
+ The logic in this implementation is that when iterating though a small part the matrix, some positions are being read multiple times, in this specific 
+ example lets consider workPerTthread with the value 10, in this case each iteration of the outside loop will iterate over the Y axis the 10 times, when
+ doing so the D(x,k) will not change, so by writing this value in the corresponding entry of the matrix in the shared memory we save some time. The logic
+ in writing the D(k,y) is almost the same, when doing the first iteration of the outside loop, we will be reading from global memory all the possible 
+ values of D(k,y) for that thread, by doing so it has an unnecessary overhead. To prevent that, we will have a shared three dimensional array, where the
+ first two dimensions represent the thread position in the block, were each thread of the block will have each position and the third dimension will be 
+ the diferent D(k,y) entries for that thread. Note that it should only be done in the first iteration of the outside loop as explained before.
+  In this case it needs to be three dimensional array since it is the inside loop, were in the D(x,k) improvement, we only need one position of the matrix
+  for each thread because that value will be updated at the begining of each iteration of the outside loop.
 
 \section{Evaluation}
 
