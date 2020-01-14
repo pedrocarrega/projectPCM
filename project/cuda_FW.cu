@@ -23,7 +23,7 @@ inline void gpuAssert(cudaError_t code, const char* file, int line, bool abort =
 	}
 }
 
-#define GRAPH_SIZE 5000
+#define GRAPH_SIZE 2000
 #define WORK_SIZE 26
 #define NTHREADS 10
 
@@ -333,10 +333,10 @@ void floyd_warshall_gpu(const int* graph, int graph_size, int* output) {
 	}
 
 	//int maxRegisterSize = prop.
-	int maxMemSize = prop.sharedMemPerBlock;
+	//int maxMemSize = prop.sharedMemPerBlock;
 	int maxBlocksPerAxis = sqrt(prop.multiProcessorCount * (prop.maxThreadsPerMultiProcessor / (NThreads * NThreads)));
-	int maxThreadsPerAxis = maxBlocksPerAxis * NThreads;
-	int workPerThread = ((graph_size) / maxThreadsPerAxis) + 1;
+	//int maxThreadsPerAxis = maxBlocksPerAxis * NThreads;
+	//int workPerThread = ((graph_size) / maxThreadsPerAxis) + 1;
 
 	//fprintf(stderr, "work %d\nthreads %d\n", workPerThread, NThreads);
 
@@ -345,10 +345,10 @@ void floyd_warshall_gpu(const int* graph, int graph_size, int* output) {
 
 	//printf("blockPerAxis = %d\n", maxBlocksPerAxis);
 
-	int t = 64;
-	int b = prop.multiProcessorCount * (prop.maxThreadsPerMultiProcessor / t);
+	//int t = 64;
+	//int b = prop.multiProcessorCount * (prop.maxThreadsPerMultiProcessor / t);
 	
-	//calculateSequencialGPU << <1, 1 >> > (dev_a, graph_size);
+	calculateSequencialGPU << <1, 1 >> > (dev_a, graph_size);
 	
 	/*
 	for (int k = 0; k < graph_size; k++) {
@@ -360,7 +360,7 @@ void floyd_warshall_gpu(const int* graph, int graph_size, int* output) {
 	*/
 	
 	//calcWithAtomic <<<blocks, threads>>> (dev_a, graph_size, workPerThread);
-	calcSharedWithAtomic <<<blocks, threads >>> (dev_a, graph_size, workPerThread);
+	//calcSharedWithAtomic <<<blocks, threads >>> (dev_a, graph_size, workPerThread);
 	//calcSIMDSharedWithAtomic <<<blocks, threads >>> (dev_a, graph_size, workPerThread);
 
 	cudaError_t err = cudaMemcpy(output, dev_a, sizeof(int) * graph_size * graph_size, cudaMemcpyDeviceToHost);
@@ -411,7 +411,7 @@ int main(int argc, char** argv) {
 	fprintf(stderr, "running on cpu...\n");
 	QueryPerformanceFrequency(&frequency);
 	QueryPerformanceCounter(&start);
-	//floyd_warshall_cpu(graph, GRAPH_SIZE, output_cpu);
+	floyd_warshall_cpu(graph, GRAPH_SIZE, output_cpu);
 	QueryPerformanceCounter(&end);
 	interval = (double)(end.QuadPart - start.QuadPart) / frequency.QuadPart;
 	fprintf(stderr, "%f seconds\n", interval);
