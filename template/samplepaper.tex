@@ -40,7 +40,7 @@ threads.
 \newline
 For this paper all the examples will be in CUDA.
 \newline
-To make a method to be computed in the GPU you need to declare it has "__global__" so that it will run on the GPU when called in the CPU. Each kernel runs a "grid" which is the 
+To make a method to be computed in the GPU you need to declare it has "\_\_global\_\_" so that it will run on the GPU when called in the CPU. Each kernel runs a "grid" which is the 
 
 group of blocks that are launched by the kernel, where each block is a set of threads. The grid can be represented as a one dimensional array, a two dimensional array and a 
 
