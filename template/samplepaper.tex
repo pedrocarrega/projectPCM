@@ -139,15 +139,18 @@ This scenario is avoided by a correct split of the work load, making every threa
 \newline
 \newline
 %ja disse k nao tou inspirado hj?
-3. Like mentioned before, using the GPU scheduler adds a major overhead to the computation, so it makes sense we try to avoid using it.
-One possible workaround, on a kernel call that uses loops and the problem is bigger than the number of threads offered by the GPU, is to increment the value of the coordinates variable by the product of the dimension of the block by the dimension of the grid. Doing this
+3. Like mentioned before, using the GPU scheduler adds a major overhead to the computation, so it makes sense that we try to avoid using it.
+One possible workaround, on a kernel call that uses loops and the problem is bigger than the number of threads offered by the GPU, is to increment the value of the coordinates variable by the product of the dimension of the block by the dimension of the grid. Doing this will allows us to reuse certain threads without having to rely on the GPU scheduler.
+\newline
+\newline
+To show the importance of using a correct work load we will implement another solution to the Floyd-Warshall problem. First we need to decide how many blocks and threads we will be using, being both in a 2D grid. For the threads you should use the number that makes most sense considering your system, in our case that number is 8. Regarding the number of blocks we decided to use the squared root of the number of blocks allowed per multiprocessor times the number of multiprocessors present on our GPU. We then determined how much positions each thread would need to compute and send that value with our kernel call.
 
-To use the major strength of the GPU we have to decide how to partition the work each thread will do. 
-Ideally we would use the lowest number of blocks possible, allowing use of shared memory and block synchronization, but we getting ahead of ourselves %use this cheeky line? 
-To show the importance of using a correct work load we will implement
+We determine the coordinates like previous implementations with the difference that to that number we multiply the number of positions each thread will need to compute. %fazemos isso pk....
+Then we create two \textit{for} cycles that go from those coordinates to that number plus the number of positions the thread will need to compute. If the coordinates are within the scope of the problem the thread will then compute.
 
 \subsection{Synchronization}
 
+CUDA offers it's users some forms of synchronization, allowing it's users to
 
 \subsection{Shared Memory}
 
