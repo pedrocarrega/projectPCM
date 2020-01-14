@@ -7,3 +7,4 @@ Dar contexto, ou assumir k o leitor ja sabe as coisas;
 Nao falamos de memory banks visto k na nossa implementacao esta fora do nosso controlo;
 Implementacao insuficiente, explicar pk melhora;
 Se os paremetros k sao passados po kernel se memoria e alocada automaticamente;
+Amount of shared of memory varia com diferentes GPUs;
