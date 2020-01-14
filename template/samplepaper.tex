@@ -154,7 +154,14 @@ CUDA offers it's users some forms of synchronization, allowing it's users to hav
 The most common forms of synchronization is using \_\_syncthreads(), which blocks the thread till all threads within the same block call it, and using Atomic variables. Atomic variables have the benefit of offering GPU wide synchronization but usage of such variables is very slow, making them only useful on certain scenarios.
 
 Considering the Floyd-Warshall only has one barrier point, we can use synchronization to reduce the number of kernel calls to just one.
-First we define a global atomic variable on the GPU so that we can have GPU wide synchronization
+We will be using the same implementation used on the previous iteration of our solution, but slightly modifying it so it uses synchronization.
+We'll start by defining a global variable called \textit{barrier} on the GPU so that we can have GPU wide synchronization, this variable will start at 0. 
+Being a variable whose propose is synchronization, all operations on it will be atomic. 
+But like mentioned before atomic operations carry an heavy performance cost, so to reduce the usage only one thread per block will be computing atomic operations on the variable.
+Since now we will only be calling the kernel once every thread must now store it's own variable K, which will be iterated by 1 every computing cycle. 
+At the end of the computing cycle one thread per block will increment the value of barrier by one and then be stuck in a empty loop while it waits for every block to increment by 1 the value of barrier. 
+We will be using \_\_syncthreads() so that the other threads await for the synchronization between blocks.
+
 
 \subsection{Shared Memory}
 Shared memory is a type of memory that is on-chip, because of that it is much faster then global memory. In fact shared memory latency is roughly 
@@ -162,7 +169,7 @@ Shared memory is a type of memory that is on-chip, because of that it is much fa
 thread block, so all threads in the block have access to the same shared memory. The size of memory that can be used is limited, it depends on the GPU
 used, so when using it be aware of the GPU limitations.
 Each thread has a local storage which is on-chip as the shared memory, but it is even faster due to being implemented as registers with spill over
-into L1 cache. This type of memory should be used everytime it is possible, as the shared memory it is limited but even more.
+into L1 cache. This type of memory should be used every time it is possible, as the shared memory it is limited but even more.
 
 Considering that, it should always be taken into advantage the usage of both registry and shared memory. The registry variables are created when defining
 new variables inside of the kernel implementation, the shared memory are the variables that are declared also inside of the kernel but with \_\_shared\_\_.
