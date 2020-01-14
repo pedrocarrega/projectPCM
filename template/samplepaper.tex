@@ -129,9 +129,9 @@ During our research into the topic we came up with the following guidelines in o
 	\newline
 \end{enumerate}
 %nao gosto deste paragrafo
-1. Considering every thread follows the program counter of the block, meaning the thread is only allowed to compute a certain line when the block allows it.
+1. Considering every thread follows the program counter of the warp, meaning the thread is only allowed to compute a certain line when the warp allows it.
 Threads with less work load might find themselves in a situation where they must sit idle waiting for others threads to catch up.
-This scenario is avoided by a correct split of the work load, making every thread in the same block be synchronized on the computation it needs to execute.
+This scenario is avoided by a correct split of the work load, making every thread in the same warp be synchronized on the computation it needs to execute.
 \newline
 \newline
 %e deste
@@ -150,7 +150,11 @@ Then we create two \textit{for} cycles that go from those coordinates to that nu
 
 \subsection{Synchronization}
 
-CUDA offers it's users some forms of synchronization, allowing it's users to
+CUDA offers it's users some forms of synchronization, allowing it's users to have a barrier on theirs implementations.
+The most common forms of synchronization is using \_\_syncthreads(), which blocks the thread till all threads within the same block call it, and using Atomic variables. Atomic variables have the benefit of offering GPU wide synchronization but usage of such variables is very slow, making them only useful on certain scenarios.
+
+Considering the Floyd-Warshall only has one barrier point, we can use synchronization to reduce the number of kernel calls to just one.
+First we define a global atomic variable on the GPU so that we can have GPU wide synchronization
 
 \subsection{Shared Memory}
 
