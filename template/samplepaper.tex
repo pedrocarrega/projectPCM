@@ -1,6 +1,7 @@
 \documentclass[runningheads]{llncs}
 
 \usepackage{graphicx}
+\usepackage{listings}
 
 
 \begin{document}
@@ -120,10 +121,12 @@ In order to improve performance, to the values of X and Y are added the block di
 After, if the coordinates are still within the scope of the problem, the thread will compute again using the new coordinates.%compute? 
 
 \subsection{Work Load}
-How the partition the work load for each thread may have a big impact on the performance of our solution. 
+
+How we partition the work load for each thread may have a big impact on the performance of our solution. Like mentioned before, the major strength of the GPU is it's high thread count so that it can compute multiple values at the same time.
+
 
 To use the major strength of the GPU we have to decide how to partition the work each thread will do. 
-Ideally we would use the lowest number of blocks possible, allowing use of shared memory and block synchronization, but we getting ahead of ourselves %use this cheeky line?
+Ideally we would use the lowest number of blocks possible, allowing use of shared memory and block synchronization, but we getting ahead of ourselves %use this cheeky line? 
 To show the importance of using a correct work load we will implement
 
 \subsection{Synchronization}
