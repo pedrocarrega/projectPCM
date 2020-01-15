@@ -39,9 +39,10 @@ When launching a kernel it has to be declared the number of threads per block an
 
 The composition of the kernel grid has a huge impact on performance, with that in mind a programmer of GPGPU should aim to use the largest amount of threads per block possible.
 
-It also needs to be considered that the GPU does not have access to the memory used by the CPU, so all pointers used as input for the GPU kernel will have to be allocated and copied to the GPU global memory before being able to access it. The pointers of the memory that were allocated need to be passed through the parameters of the kernel call so that they can be used by the GPU. In case of a primitive type, it can be passed only by the parameters of the kernel (i.e. int) and does not need to allocate memory on the gpu memory manually(???????). After all the computations are finished, the result should be accessible by the cpu so that it can copy back the result to the cpu and do what it needs with it. To do that it needs to copy the result similarly to the opposite operation but this time from the device to the host. Then the memory that was allocated in the gpu memory should be freed so there are no memory leaks just like in the cpu. In the next figure you can see an example of a input being copied to the GPU, the call of the kernel, the corresponding composition of the grid which will be represented in the (NUMERO DA FIGURA COM A DISPOSICAO) and then the result being copied back to the cpu memory:
+It also needs to be considered that the GPU does not have access to the memory used by the CPU, so all pointers used as input for the GPU kernel will have to be allocated and copied to the GPU global memory before being able to access it. The pointers of the memory that were allocated need to be passed through the parameters of the kernel call so that they can be used by the GPU. In case of a primitive type, it can be passed only by the parameters of the kernel (i.e. int) and does not need to allocate memory on the GPU memory manually(???????). After all the computations are finished, the result should be accessible by the CPU so that it can copy back the result to the CPU and do what it needs with it. To do that it needs to copy the result similarly to the opposite operation but this time from the device to the host. Then the memory that was allocated in the GPU memory should be freed so there are no memory leaks just like in the CPU. In the next figure you can see an example of a input being copied to the GPU, the call of the kernel, the corresponding composition of the grid which will be represented in the (NUMERO DA FIGURA COM A DISPOSICAO) and then the result being copied back to the CPU memory:
 \newline
 
+%need to put example code?
 \begin{lstlisting}[language=C++, caption=CUDA Example]
 
 //Consider the graph pointer a matrix of int with each entry 
@@ -51,7 +52,7 @@ int* matrix_pointer_device;
 
 cudaMalloc(&matrix_pointer_device, sizeof(int) * graph_size * graph_size);
 
-//This will copy from the graph pointer to the matrix_pointer_device, that is copying the matrix in the cpu memory to the pointer with memory allocated in the gpu memory
+//This will copy from the graph pointer to the matrix_pointer_device, that is copying the matrix in the CPU memory to the pointer with memory allocated in the GPU memory
 cudaMemCpy(matrix_pointer_device, graph, sizeof(int) * graph_size * graph_size, cudaMemcpyHostToDevice);
 
 //Definition of the parameters that describe the kernel grid
@@ -65,15 +66,15 @@ dim3 blocks(4,2);
 //Launch of the kernel
 computes<<<blocks, threads>>>(graph_size, matrix_pointer_device);
 
-//Result being copied back to cpu memory
+//Result being copied back to CPU memory
 cudaMemCpy(graph, matrix_pointer_device, sizeof(int) * graph_size * graph_size, cudaMemcpyDeviceToHost);
 
-//Freeing the gpu memory
+//Freeing the GPU memory
 cudaFree(cudaMemcpyDeviceToHost);
 
-//Now the result is in graph since it was copied back to the original matrix.
-
 \end{lstlisting}
+
+
 
 %e necessario aquele comentario final no codigo?
 
@@ -81,15 +82,6 @@ cudaFree(cudaMemcpyDeviceToHost);
 
 %Imagem que mostra a disposição da grid conforme os parametros passados para o kernel (nr de blocos e threads por bloco compondo o kernel)
 
-%-------------------- 
-
-%Será melhor explicar isto na parte de falar dos improvements???
-Each thread used in a kernel can acess the global memory of the GPU but the drawback is that the access speed to that memory is not ideal, to improve that each block has its set of shared memory which is available to all threads inside the block, this memory will be much faster but will be more limited in terms of capacity. Then there is the registry memory that is even faster, each thread having theirs but will be extremely limited in capacity.
-
-Each kernel runs on a "grid" which is composed of blocks and blocks being a group of threads. The grid can be represented in one, two or three dimensions. So the threads can be used as an array of threads, each thread with its own index, as a matrix of threads, where each threads has its X index and Y index, and as a three dimension array where each thread has a X, Y and Z index. This  This can be used to make the mapping of the problem easier.
-Each GPU kernel runs thousands of threads, threads need to be groupped in blocks, where each block will share a set of memory that is much faster then the global memory in the GPU. The group of all blocks are named as a "grid".
-In the hardware sense a warp is a set of 32 threads that all share the same code and follows the same exact execution. So it is important to understand for example if it is used only one thread, then 31 threads will be unavailable  since they belong to the same warp and will be waiting for the other thread to finish. So when declaring the number of threads per block it should be taken in consideration that it should be used a multiple of 32 so that no threads are wasted.
-Each kernel runs on a "grid"
 
 \section{Background}
 
@@ -239,10 +231,17 @@ for each thread because that value will be updated at the beginning of each iter
 
 \subsection{Experimental Setup}
 
-In this section you should describe the machine(s) in which you are going to evaluate your system. Select the information that is relevant.
-
+%To be decided
 
 \subsection{Results}
+
+To show the results and effectiveness of our solutions we ran two sets of tests:
+\begin{itemize}
+	\item We ran both sequential versions with the graph size at 2000, in order to show the weakness of the GPU in single threaded tasks. \item We ran all our implementations, minus the sequential GPU, in order to show the impact of our improvements made on the computation of our problem.
+\end{itemize}
+
+\begin{comment}
+	
 
 In this section you should present the results. Do not forget to explain where the data came from. 
 
@@ -252,11 +251,15 @@ You should include (ideally vectorial) plots, with a descriptive caption. Make s
 \includegraphics[width=\textwidth]{code/performance.eps}
 \caption{Comparison of the performance of sequential and parallel versions of the algorithm.} \label{fig1}
 \end{figure}
-
+\end{comment}
 
 \subsection{Discussion}
 
+
+
+\begin{comment}
 Here you should discuss the results on a high level. For instance, based on our results, the parallelization of the merge-sort is relevant as no other parallel work occurs at the same time, and the complexity $O(N log(N))$ can have a large impact when the number of individuals is high.
+\end{comment}
 
 \section{Related Work}
 
