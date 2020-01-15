@@ -25,8 +25,8 @@ inline void gpuAssert(cudaError_t code, const char* file, int line, bool abort =
 
 #define GRAPH_SIZE 2048
 #define WORK_SIZE 96
-#define NTHREADS 4
-#define BLOCKS 32
+#define NTHREADS 32
+#define BLOCKS 3
 
 #define EDGE_COST(graph, graph_size, a, b) graph[a * graph_size + b]
 #define D(a, b) EDGE_COST(output, graph_size, a, b)
@@ -107,6 +107,8 @@ __global__ void calcWithAtomic(int* output, int graph_size)
 	int numBlocks = gridDim.x * gridDim.y;
 
 	while (k < graph_size) {
+		if (threadIdx.x == 0 && threadIdx.y == 0)
+		printf("Before\n");
 		for (int x = i; x < i + WORK_SIZE; x++)
 		{
 			for (int y = j; y < j + WORK_SIZE; y++)
@@ -115,16 +117,25 @@ __global__ void calcWithAtomic(int* output, int graph_size)
 					if (D(x, k) + D(k, y) < D(x, y)) {
 						D(x, y) = D(x, k) + D(k, y);
 					}
+				}else{
+					break;
 				}
 			}
+			if (threadIdx.x == 0 && threadIdx.y == 0)
+			printf("AFTER: %d\n", x);
 		}
 
-		k = k + 1;
-
+		k++;
+		/*if (threadIdx.x == 0 && threadIdx.y == 0)
+		printf("After\n");
+		*/
+		//bloco perde-se
 		if (threadIdx.x == 0 && threadIdx.y == 0) {
 			atomicAdd(&barrier,1);
+			printf("barrier: %d\n", barrier);
 			while (barrier % numBlocks != 0);
 		}
+		
 		__syncthreads();
 
 	}
@@ -152,7 +163,7 @@ __global__ void calcWithoutAtomic(int* output, int graph_size, int k, int workPe
 	}
 }
 
-
+/*
 __global__ void calcSharedWithAtomic(int* output, int graph_size)
 {
 	int i = (blockIdx.x * blockDim.x + threadIdx.x) * WORK_SIZE;
@@ -210,7 +221,7 @@ __global__ void calcSharedWithoutAtomic(int* output, int graph_size, int k, int 
 	//printf("workPT %d , blockdim = %d ", workPerThread, blockDim.x);
 	/*
 	Por enquanto o valuesX faz ser um pouco mais rapido mas o valuesY faz ficar bastante mais lento, implementar com shared memory
-	*/
+	*//*
 	for (int x = i; x < i + workPerThread; x++)
 	{
 		
@@ -220,7 +231,7 @@ __global__ void calcSharedWithoutAtomic(int* output, int graph_size, int k, int 
 		if (threadIdx.x == 0 && threadIdx.y == 0) {
 			array[blockDim.x * blockIdx.x] = D(x, k);
 		}
-		__syncthreads;*/
+		__syncthreads;*//*
 		for (int y = j; y < j + workPerThread; y++)
 		{
 			//values[threadX][threadY] = D(x, k);
@@ -318,19 +329,20 @@ void floyd_warshall_gpu(const int* graph, int graph_size, int* output) {
 	//int b = prop.multiProcessorCount * (prop.maxThreadsPerMultiProcessor / t);
 	
 	//calculateSequencialGPU << <1, 1 >> > (dev_a, graph_size);
-
+/*
 	int blocks;
 	int threads;
 	cudaOccupancyMaxPotentialBlockSize (&blocks, &threads, calcWithAtomic, 0, GRAPH_SIZE*GRAPH_SIZE);
-	
+	blocks = sqrt(blocks);
 	threads = sqrt(threads);
+	printf("workPerThread to be defined as %d\n", threads*blocks);
+	
 /*	
 	if(threads % 2 != 0){
 		threads++;
 	}
 */
-	blocks = sqrt(blocks);
-	printf("workPerThread to be defined as %d\n", threads*blocks);
+	
 /*
 	if(blocks % 2 != 0){
 		blocks++;
@@ -338,18 +350,20 @@ void floyd_warshall_gpu(const int* graph, int graph_size, int* output) {
 
 
 	
-	
+	/*
 	for (int k = 0; k < graph_size; k++) {
 		//calcSharedWithoutAtomic <<<blocks, threads>>> (dev_a, graph_size, k);
 		//calcWithoutAtomic <<<blocks, threads>>> (dev_a, graph_size, k);
 		calcOnePosPerThread <<<dim3(GRAPH_SIZE/8,GRAPH_SIZE/8), dim3(8,8)>>>(dev_a, graph_size,k);
 		//calThreadPerColumn <<<b, t >>> (dev_a, graph_size, t * b, k);
 	}
+	*/
 	
 	
-	fprintf(stderr, "blocks: %d\nthreads: %d\n", blocks, threads);
 	
-	//calcWithAtomic <<<dim3(blocks,blocks), dim3(threads,threads)>>> (dev_a, graph_size);
+	//fprintf(stderr, "blocks: %d\nthreads: %d\n", blocks, threads);
+	
+	calcWithAtomic <<<dim3(BLOCKS,BLOCKS), dim3(NTHREADS,NTHREADS)>>> (dev_a, graph_size);
 	//calcSharedWithAtomic <<<blocks, threads >>> (dev_a, graph_size);
 	//calcSIMDSharedWithAtomic <<<blocks, threads >>> (dev_a, graph_size);
 
@@ -383,9 +397,9 @@ int main(int argc, char** argv) {
   		time_delta = (float)tv.tv_sec + tv.tv_usec / 1000000.0
 
   struct timeval tv1, tv2, tv;
-  float time_delta;
-	
-	int* graph, * output_cpu, * output_gpu;
+  float time_delta;	
+ 
+  int* graph, * output_cpu, * output_gpu;
 	int size;
 
 	size = sizeof(int) * GRAPH_SIZE * GRAPH_SIZE;
