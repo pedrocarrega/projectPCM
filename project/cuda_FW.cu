@@ -57,19 +57,19 @@ void generate_random_graph(int* output, int graph_size) {
 	}
 }
 
-//calcOnePositionPerThread
+//calcOnePositionPerThread e deixar o schedualing para a gpu, fazendo assim todas as posicoes da matriz
 __global__ void calcOnePosPerThread(int* output, int graph_size, int k)
 {
 	int i = (blockIdx.x * blockDim.x + threadIdx.x);
 	int j = (blockIdx.y * blockDim.y + threadIdx.y);
 
-	while (i < graph_size && j < graph_size) {
+	//while (i < graph_size && j < graph_size) {
 		if (D(i, k) + D(k, j) < D(i, j)) {
 			D(i, j) = D(i, k) + D(k, j);
 		}
-		i += blockDim.x * gridDim.x;
-		j += blockDim.y * gridDim.y;
-	}
+		//i += blockDim.x * gridDim.x;
+		//j += blockDim.y * gridDim.y;
+	//}
 }
 
 __global__ void calThreadPerColumn(int* output, const int graph_size, int numThreads, int k)
@@ -94,6 +94,10 @@ __global__ void calThreadPerColumn(int* output, const int graph_size, int numThr
 
 __device__ int barrier = 0;
 
+/*
+Problemas em todos os que usam atomic possivelmente devido a estar a calcular mal o num max
+de threads/blocks/warps que se pode ter na totalidade assim como por SM, ver descriao nas doubts.txt
+*/
 __global__ void calcWithAtomic(int* output, int graph_size, int workPerThread)
 {
 	int i = (blockIdx.x * blockDim.x + threadIdx.x) * workPerThread;
@@ -117,6 +121,7 @@ __global__ void calcWithAtomic(int* output, int graph_size, int workPerThread)
 		k = k + 1;
 
 		if (threadIdx.x == 0 && threadIdx.y == 0) {
+			atomicAdd(&barrier,1);
 			while (barrier % numBlocks != 0);
 		}
 		__syncthreads();
@@ -179,6 +184,7 @@ __global__ void calcSharedWithAtomic(int* output, int graph_size, int workPerThr
 		k = k + 1;
 
 		if (threadIdx.x == 0 && threadIdx.y == 0) {
+			atomicAdd(&barrier,1);
 			while (barrier % numBlocks != 0);
 		}
 		__syncthreads();
@@ -218,6 +224,7 @@ __global__ void calcSIMDSharedWithAtomic(int* output, int graph_size, int workPe
 		k = k + 1;
 
 		if (threadIdx.x == 0 && threadIdx.y == 0) {
+			atomicAdd(&barrier,1);
 			while (barrier % numBlocks != 0);
 		}
 		__syncthreads();
