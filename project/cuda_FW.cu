@@ -24,7 +24,7 @@ inline void gpuAssert(cudaError_t code, const char* file, int line, bool abort =
 }
 
 #define GRAPH_SIZE 2048
-#define WORK_SIZE 256
+#define WORK_SIZE 96
 #define NTHREADS 4
 #define BLOCKS 32
 
@@ -99,17 +99,17 @@ __device__ int barrier = 0;
 Problemas em todos os que usam atomic possivelmente devido a estar a calcular mal o num max
 de threads/blocks/warps que se pode ter na totalidade assim como por SM, ver descriao nas doubts.txt
 */
-__global__ void calcWithAtomic(int* output, int graph_size, int workPerThread)
+__global__ void calcWithAtomic(int* output, int graph_size)
 {
-	int i = (blockIdx.x * blockDim.x + threadIdx.x) * workPerThread;
-	int j = (blockIdx.y * blockDim.y + threadIdx.y) * workPerThread;
+	int i = (blockIdx.x * blockDim.x + threadIdx.x) * WORK_SIZE;
+	int j = (blockIdx.y * blockDim.y + threadIdx.y) * WORK_SIZE;
 	int k = 0;
 	int numBlocks = gridDim.x * gridDim.y;
 
 	while (k < graph_size) {
-		for (int x = i; x < i + workPerThread; x++)
+		for (int x = i; x < i + WORK_SIZE; x++)
 		{
-			for (int y = j; y < j + workPerThread; y++)
+			for (int y = j; y < j + WORK_SIZE; y++)
 			{
 				if (x < graph_size && y < graph_size) {
 					if (D(x, k) + D(k, y) < D(x, y)) {
@@ -153,10 +153,10 @@ __global__ void calcWithoutAtomic(int* output, int graph_size, int k, int workPe
 }
 
 
-__global__ void calcSharedWithAtomic(int* output, int graph_size, int workPerThread)
+__global__ void calcSharedWithAtomic(int* output, int graph_size)
 {
-	int i = (blockIdx.x * blockDim.x + threadIdx.x) * workPerThread;
-	int j = (blockIdx.y * blockDim.y + threadIdx.y) * workPerThread;
+	int i = (blockIdx.x * blockDim.x + threadIdx.x) * WORK_SIZE;
+	int j = (blockIdx.y * blockDim.y + threadIdx.y) * WORK_SIZE;
 	int k = 0;
 	int numBlocks = gridDim.x * gridDim.y;
 	
@@ -164,12 +164,12 @@ __global__ void calcSharedWithAtomic(int* output, int graph_size, int workPerThr
 	__shared__ int valuesY[NTHREADS][NTHREADS][WORK_SIZE];
 
 	while (k < graph_size) {
-		for (int x = i; x < i + workPerThread; x++)
+		for (int x = i; x < i + WORK_SIZE; x++)
 		{
 			if (x < graph_size) {
 				valuesX[threadIdx.x][threadIdx.y] = D(x, k);
 			}
-			for (int y = j; y < j + workPerThread; y++)
+			for (int y = j; y < j + WORK_SIZE; y++)
 			{
 				if (x < graph_size && y < graph_size) {
 					if (x == i) {
@@ -184,7 +184,7 @@ __global__ void calcSharedWithAtomic(int* output, int graph_size, int workPerThr
 
 		k++;
 
-		if (threadIdx.x == 0) {
+		if (threadIdx.x == 0 && threadIdx.y) {
 			atomicAdd(&barrier,1);
 			while (barrier % numBlocks != 0);
 		}
@@ -192,47 +192,6 @@ __global__ void calcSharedWithAtomic(int* output, int graph_size, int workPerThr
 
 	}
 }
-
-__global__ void calcSIMDSharedWithAtomic(int* output, int graph_size, int workPerThread)
-{
-	int i = (blockIdx.x * blockDim.x + threadIdx.x) * workPerThread;
-	int j = (blockIdx.y * blockDim.y + threadIdx.y) * workPerThread;
-	int k = 0;
-	int numBlocks = gridDim.x * gridDim.y;
-
-	__shared__ int valuesX[NTHREADS][NTHREADS];
-	__shared__ int valuesY[NTHREADS][NTHREADS][WORK_SIZE];
-
-	while (k < graph_size) {
-		for (int x = i; x < i + workPerThread; x++)
-		{
-			if (x < graph_size) {
-				valuesX[threadIdx.x][threadIdx.y] = D(x, k);
-			}
-			for (int y = j; y < j + workPerThread; y++)
-			{
-				if (x < graph_size && y < graph_size) {
-					if (x == i) {
-						valuesY[threadIdx.x][threadIdx.y][y - j] = D(k, y);
-					}
-					if (valuesX[threadIdx.x][threadIdx.y] + valuesY[threadIdx.x][threadIdx.y][y - j] < D(x, y)) {
-						D(x, y) = valuesX[threadIdx.x][threadIdx.y] + valuesY[threadIdx.x][threadIdx.y][y - j];
-					}
-				}
-			}
-		}
-
-		k++;
-
-		if (threadIdx.x == 0 && threadIdx.y == 0) {
-			atomicAdd(&barrier,1);
-			while (barrier % numBlocks != 0);
-		}
-		__syncthreads();
-
-	}
-}
-
 
 
 __global__ void calcSharedWithoutAtomic(int* output, int graph_size, int k, int workPerThread)
@@ -362,36 +321,37 @@ void floyd_warshall_gpu(const int* graph, int graph_size, int* output) {
 
 	int blocks;
 	int threads;
-	cudaOccupancyMaxPotentialBlockSize (&threads, &blocks, calcWithAtomic, 0, GRAPH_SIZE*GRAPH_SIZE);
+	cudaOccupancyMaxPotentialBlockSize (&blocks, &threads, calcWithAtomic, 0, GRAPH_SIZE*GRAPH_SIZE);
 	
 	threads = sqrt(threads);
-	
+/*	
 	if(threads % 2 != 0){
 		threads++;
 	}
-
+*/
 	blocks = sqrt(blocks);
-
+	printf("workPerThread to be defined as %d\n", threads*blocks);
+/*
 	if(blocks % 2 != 0){
 		blocks++;
-	}
+	}*/
 
 
 	
-	/*
+	
 	for (int k = 0; k < graph_size; k++) {
-		//calcSharedWithoutAtomic <<<blocks, threads>>> (dev_a, graph_size, k, WORK_SIZE);
-		//calcWithoutAtomic <<<blocks, threads>>> (dev_a, graph_size, k, WORK_SIZE);
-		calcOnePosPerThread <<<dim3(GRAPH_SIZE/NThreads,GRAPH_SIZE/NThreads), dim3(NThreads,NThreads)>>>(dev_a, graph_size,k);
+		//calcSharedWithoutAtomic <<<blocks, threads>>> (dev_a, graph_size, k);
+		//calcWithoutAtomic <<<blocks, threads>>> (dev_a, graph_size, k);
+		calcOnePosPerThread <<<dim3(GRAPH_SIZE/8,GRAPH_SIZE/8), dim3(8,8)>>>(dev_a, graph_size,k);
 		//calThreadPerColumn <<<b, t >>> (dev_a, graph_size, t * b, k);
 	}
-	*/
 	
-	fprintf(stderr, "blocks: %d\nthreads: %d\nwork: %d\n", blocks, threads, GRAPH_SIZE * GRAPH_SIZE/(blocks*blocks*threads*threads));
 	
-	//calcWithAtomic <<<blocks, threads>>> (dev_a, graph_size, WORK_SIZE);
-	//calcSharedWithAtomic <<<blocks, threads >>> (dev_a, graph_size, WORK_SIZE);
-	//calcSIMDSharedWithAtomic <<<blocks, threads >>> (dev_a, graph_size, WORK_SIZE);
+	fprintf(stderr, "blocks: %d\nthreads: %d\n", blocks, threads);
+	
+	//calcWithAtomic <<<dim3(blocks,blocks), dim3(threads,threads)>>> (dev_a, graph_size);
+	//calcSharedWithAtomic <<<blocks, threads >>> (dev_a, graph_size);
+	//calcSIMDSharedWithAtomic <<<blocks, threads >>> (dev_a, graph_size);
 
 	cudaError_t err = cudaMemcpy(output, dev_a, sizeof(int) * graph_size * graph_size, cudaMemcpyDeviceToHost);
 	gpuErrchk(err);
