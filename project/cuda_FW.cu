@@ -24,7 +24,7 @@ inline void gpuAssert(cudaError_t code, const char* file, int line, bool abort =
 	}
 }
 
-#define GRAPH_SIZE 2048*50
+#define GRAPH_SIZE 2048
 #define WORK_SIZE 256
 #define NTHREADS 1024
 #define BLOCKS 16
@@ -158,9 +158,11 @@ __global__ void calcWithoutAtomic1D(int* output, int k, int workPerThread)
 	int counter = 0;
 	while (counter < workPerThread)
 	{
+		if (i < GRAPH_SIZE && j < GRAPH_SIZE) {
 			if (D(i, k) + D(k, j) < D(i, j)) {
 				D(i, j) = D(i, k) + D(k, j);
 			}
+		}
 		if (j + 1 < GRAPH_SIZE) {
 			j++;
 		}else {
@@ -440,15 +442,15 @@ void floyd_warshall_gpu(const int* graph, int* output) {
 	
 	//calculateSequencialGPU << <1, 1 >> > (dev_a, GRAPH_SIZE);
 
-	/*
+	
 	int blocks;
 	int threads;
-	cudaOccupancyMaxPotentialBlockSize (&blocks, &threads, calcOnePosPerThread, 0, GRAPH_SIZE*GRAPH_SIZE);
+	cudaOccupancyMaxPotentialBlockSize (&blocks, &threads, calcWithoutAtomic1D, 0, GRAPH_SIZE*GRAPH_SIZE);
 	//blocks = sqrt(blocks);
 	//threads = sqrt(threads);
 	int workPerThread = ((GRAPH_SIZE*GRAPH_SIZE) / (threads*blocks));// + 1;
-	printf("workPerThread to be defined as %d blocks= %d threadsPerBlocks = %d\n", workPerThread, blocks, threads);
-	*/
+	printf("workPerThread= %d, blocks= %d threadsPerBlocks = %d\n", workPerThread, blocks, threads);
+	
 /*	
 	if(threads % 2 != 0){
 		threads++;
@@ -463,24 +465,26 @@ void floyd_warshall_gpu(const int* graph, int* output) {
 
 	
 	
+	/*
 	for (int k = 0; k < GRAPH_SIZE; k++) {
-		//calcSharedWithoutAtomic <<<blocks, threads>>> (dev_a, GRAPH_SIZE, k);
-		//calcWithoutAtomic <<<dim3(blocks,blocks), dim3(threads,threads)>>> (dev_a, GRAPH_SIZE, k, workPerThread);
-		//calcWithoutAtomic1D << <blocks, threads >> > (dev_a, GRAPH_SIZE, k, workPerThread);
-		calcOnePosPerThread <<<dim3(GRAPH_SIZE/NTHREADS,GRAPH_SIZE/NTHREADS), dim3(NTHREADS,NTHREADS)>>>(dev_a, k);
-		//calThreadPerColumn <<<b, t >>> (dev_a, GRAPH_SIZE, t * b, k);
+		//calcSharedWithoutAtomic <<<blocks, threads>>> (dev_a, k);
+		//calcWithoutAtomic <<<dim3(blocks,blocks), dim3(threads,threads)>>> (dev_a, k, WORK_SIZE);
+		calcWithoutAtomic1D <<<blocks, threads>>> (dev_a, k, WORK_SIZE);
+		//calcOnePosPerThread <<<dim3(GRAPH_SIZE/NTHREADS,GRAPH_SIZE/NTHREADS), dim3(NTHREADS,NTHREADS)>>>(dev_a, k);
+		//calThreadPerColumn <<<b, t >>> (dev_a, t * b, k);
 	}
+	*/
+	
 	
 	
 	
 	
 	//fprintf(stderr, "blocks: %d\nthreads: %d\n", blocks, threads);
 	
-	//calcWithAtomic <<<dim3(blocks,blocks), dim3(threads,threads)>>> (dev_a, GRAPH_SIZE, workPerThread);
-	//calcWithAtomic1D<<<blocks, threads>>> (dev_a, GRAPH_SIZE, workPerThread);
-	//calcWithAtomic1DShared<<<blocks, threads>>> (dev_a, GRAPH_SIZE, workPerThread);
-	//calcSharedWithAtomic <<<blocks, threads >>> (dev_a, GRAPH_SIZE);
-	//calcSIMDSharedWithAtomic <<<blocks, threads >>> (dev_a, GRAPH_SIZE);
+	//calcWithAtomic <<<dim3(blocks,blocks), dim3(threads,threads)>>> (dev_a, workPerThread);
+	calcWithAtomic1D<<<blocks, threads>>> (dev_a, WORK_SIZE);
+	//calcWithAtomic1DShared<<<blocks, threads>>> (dev_a, WORK_SIZE);
+	//calcSharedWithAtomic <<<blocks, threads >>> (dev_a);
 
 	cudaError_t err = cudaMemcpy(output, dev_a, sizeof(int) * GRAPH_SIZE * GRAPH_SIZE, cudaMemcpyDeviceToHost);
 	gpuErrchk(err);
@@ -542,7 +546,7 @@ int main(int argc, char** argv) {
 
 	//QueryPerformanceFrequency(&frequency);
 	//QueryPerformanceCounter(&start);
-	//floyd_warshall_cpu(graph, GRAPH_SIZE, output_cpu);
+	floyd_warshall_cpu(graph, output_cpu);
 	TIMER_STOP();
 	fprintf(stderr, "%f seconds\n", time_delta);
 
