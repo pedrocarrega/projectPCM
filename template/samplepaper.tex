@@ -1,5 +1,6 @@
 \documentclass[runningheads]{llncs}
 
+\usepackage{paper_alcides}
 \usepackage{graphicx}
 \usepackage{listings}
 \usepackage{comment}
@@ -40,36 +41,23 @@ When launching a kernel it has to be declared the number of threads per block an
 The composition of the kernel grid has a huge impact on performance, with that in mind a programmer of GPGPU should aim to use the largest amount of threads per block possible.
 
 It also needs to be considered that the GPU does not have access to the memory used by the CPU, so all pointers used as input for the GPU kernel will have to be allocated and copied to the GPU global memory before being able to access it. The pointers of the memory that were allocated need to be passed through the parameters of the kernel call so that they can be used by the GPU. In case of a primitive type, it can be passed only by the parameters of the kernel (i.e. int) and does not need to allocate memory on the GPU memory manually(???????). After all the computations are finished, the result should be accessible by the CPU so that it can copy back the result to the CPU and do what it needs with it. To do that it needs to copy the result similarly to the opposite operation but this time from the device to the host. Then the memory that was allocated in the GPU memory should be freed so there are no memory leaks just like in the CPU. In the next figure you can see an example of a input being copied to the GPU, the call of the kernel, the corresponding composition of the grid which will be represented in the (NUMERO DA FIGURA COM A DISPOSICAO) and then the result being copied back to the CPU memory:
-\newline
+%\newline
 
 %need to put example code?
 \begin{lstlisting}[language=C++, caption=CUDA Example]
-
-//Consider the graph pointer a matrix of int with each entry 
-with its corresponding value filled earlier and the same length on each axis
-//graph_size being the size of each axis of the matrix
 int* matrix_pointer_device;
 
 cudaMalloc(&matrix_pointer_device, sizeof(int) * graph_size * graph_size);
 
-//This will copy from the graph pointer to the matrix_pointer_device, that is copying the matrix in the CPU memory to the pointer with memory allocated in the GPU memory
 cudaMemCpy(matrix_pointer_device, graph, sizeof(int) * graph_size * graph_size, cudaMemcpyHostToDevice);
 
-//Definition of the parameters that describe the kernel grid
-
-//Number of threads per blocks should be multiple of 32
 dim3 threads(16,32);
-//Number of blocks in the grid
 dim3 blocks(4,2); 
 
-//The number of total threads used by the kernel is equal to the total number of threads per block multiplied by the number of blocks used by the kernel.
-//Launch of the kernel
 computes<<<blocks, threads>>>(graph_size, matrix_pointer_device);
 
-//Result being copied back to CPU memory
 cudaMemCpy(graph, matrix_pointer_device, sizeof(int) * graph_size * graph_size, cudaMemcpyDeviceToHost);
 
-//Freeing the GPU memory
 cudaFree(cudaMemcpyDeviceToHost);
 
 \end{lstlisting}
