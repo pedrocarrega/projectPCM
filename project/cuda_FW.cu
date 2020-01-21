@@ -24,25 +24,25 @@ inline void gpuAssert(cudaError_t code, const char* file, int line, bool abort =
 	}
 }
 
-#define GRAPH_SIZE 2048*10
+#define GRAPH_SIZE 2048*50
 #define WORK_SIZE 256
 #define NTHREADS 1024
 #define BLOCKS 16
 
-#define EDGE_COST(graph, graph_size, a, b) graph[a * graph_size + b]
-#define D(a, b) EDGE_COST(output, graph_size, a, b)
+#define EDGE_COST(graph, GRAPH_SIZE, a, b) graph[a * GRAPH_SIZE + b]
+#define D(a, b) EDGE_COST(output, GRAPH_SIZE, a, b)
 
 #define INF 0x1fffffff
 
 
 //createGraph
-void generate_random_graph(int* output, int graph_size) {
+void generate_random_graph(int* output) {
 	int i, j;
 
 	srand(0xdadadada);
 
-	for (i = 0; i < graph_size; i++) {
-		for (j = 0; j < graph_size; j++) {
+	for (i = 0; i < GRAPH_SIZE; i++) {
+		for (j = 0; j < GRAPH_SIZE; j++) {
 			if (i == j) {
 				D(i, j) = 0;
 			}
@@ -60,12 +60,12 @@ void generate_random_graph(int* output, int graph_size) {
 }
 
 //calcOnePositionPerThread e deixar o schedualing para a gpu, fazendo assim todas as posicoes da matriz
-__global__ void calcOnePosPerThread(int* output, int graph_size, int k)
+__global__ void calcOnePosPerThread(int* output, int k)
 {
 	int i = (blockIdx.x * blockDim.x + threadIdx.x);
 	int j = (blockIdx.y * blockDim.y + threadIdx.y);
 
-	//while (i < graph_size && j < graph_size) {
+	//while (i < GRAPH_SIZE && j < GRAPH_SIZE) {
 		if (D(i, k) + D(k, j) < D(i, j)) {
 			D(i, j) = D(i, k) + D(k, j);
 		}
@@ -74,17 +74,17 @@ __global__ void calcOnePosPerThread(int* output, int graph_size, int k)
 	//}
 }
 
-__global__ void calThreadPerColumn(int* output, const int graph_size, int numThreads, int k)
+__global__ void calThreadPerColumn(int* output, int numThreads, int k)
 {
 	int i = blockIdx.x * blockDim.x + threadIdx.x;
 	int localStorageRegister;
 
 
-	while (i < graph_size) {
+	while (i < GRAPH_SIZE) {
 
 		localStorageRegister = D(i, k);
 
-		for (int j = 0; j < graph_size; j++)
+		for (int j = 0; j < GRAPH_SIZE; j++)
 		{
 			if (localStorageRegister + D(k, j) < D(i, j)) {
 				D(i, j) = localStorageRegister + D(k, j);
@@ -100,7 +100,7 @@ __device__ int barrier = 0;
 Problemas em todos os que usam atomic possivelmente devido a estar a calcular mal o num max
 de threads/blocks/warps que se pode ter na totalidade assim como por SM, ver descriao nas doubts.txt
 */
-__global__ void calcWithAtomic(int* output, int graph_size, int workPerThread)
+__global__ void calcWithAtomic(int* output, int workPerThread)
 {
 	int i = (blockIdx.x * blockDim.x + threadIdx.x) * workPerThread;
 	int j = (blockIdx.y * blockDim.y + threadIdx.y) * workPerThread;
@@ -108,7 +108,7 @@ __global__ void calcWithAtomic(int* output, int graph_size, int workPerThread)
 	int numBlocks = gridDim.x * gridDim.y;
 	//printf("aqui\n");
 
-	while (k < graph_size) {
+	while (k < GRAPH_SIZE) {
 		//__syncthreads();
 		//if (threadIdx.x == 0 && threadIdx.y == 0)
 			//printf("Before k = %d\n",k);
@@ -116,7 +116,7 @@ __global__ void calcWithAtomic(int* output, int graph_size, int workPerThread)
 		{
 			for (int y = j; y < j + workPerThread; y++)
 			{
-				//if (x < graph_size && y < graph_size) {
+				//if (x < GRAPH_SIZE && y < GRAPH_SIZE) {
 					if (D(x, k) + D(k, y) < D(x, y)) {
 						D(x, y) = D(x, k) + D(k, y);
 					}
@@ -149,11 +149,11 @@ __global__ void calcWithAtomic(int* output, int graph_size, int workPerThread)
 	}
 }
 
-__global__ void calcWithoutAtomic1D(int* output, int graph_size, int k, int workPerThread)
+__global__ void calcWithoutAtomic1D(int* output, int k, int workPerThread)
 {
 	int totalID = blockIdx.x * blockDim.x * workPerThread + threadIdx.x * workPerThread;
-	int i = totalID / graph_size;
-	int j = totalID % graph_size;
+	int i = totalID / GRAPH_SIZE;
+	int j = totalID % GRAPH_SIZE;
 
 	int counter = 0;
 	while (counter < workPerThread)
@@ -161,7 +161,7 @@ __global__ void calcWithoutAtomic1D(int* output, int graph_size, int k, int work
 			if (D(i, k) + D(k, j) < D(i, j)) {
 				D(i, j) = D(i, k) + D(k, j);
 			}
-		if (j + 1 < graph_size) {
+		if (j + 1 < GRAPH_SIZE) {
 			j++;
 		}else {
 			i++;
@@ -171,7 +171,7 @@ __global__ void calcWithoutAtomic1D(int* output, int graph_size, int k, int work
 	}
 }
 
-__global__ void calcWithAtomic1D(int* output, int graph_size, int workPerThread)
+__global__ void calcWithAtomic1D(int* output, int workPerThread)
 {
 	int totalID = blockIdx.x * blockDim.x * workPerThread + threadIdx.x * workPerThread;
 	int i;
@@ -180,16 +180,16 @@ __global__ void calcWithAtomic1D(int* output, int graph_size, int workPerThread)
 	int k = 0;
 	int numBlocks = gridDim.x;
 
-	while(k < graph_size){
-		i = totalID / graph_size;
-		j = totalID % graph_size;
+	while(k < GRAPH_SIZE){
+		i = totalID / GRAPH_SIZE;
+		j = totalID % GRAPH_SIZE;
 		counter = 0;
 		while (counter < workPerThread)
 		{
 			if (D(i, k) + D(k, j) < D(i, j)) {
 				D(i, j) = D(i, k) + D(k, j);
 			}
-			if (j + 1 < graph_size) {
+			if (j + 1 < GRAPH_SIZE) {
 				j++;
 			}else {
 				i++;
@@ -207,7 +207,7 @@ __global__ void calcWithAtomic1D(int* output, int graph_size, int workPerThread)
 	}
 }
 
-__global__ void calcWithAtomic1DShared(int* output, int graph_size, int workPerThread)
+__global__ void calcWithAtomic1DShared(int* output, int workPerThread)
 {
 	int totalID = blockIdx.x * blockDim.x * workPerThread + threadIdx.x * workPerThread;
 	int i;
@@ -218,9 +218,9 @@ __global__ void calcWithAtomic1DShared(int* output, int graph_size, int workPerT
 	int Dik;
 	int Dkj;
 
-	while(k < graph_size){
-		i = totalID / graph_size;
-		j = totalID % graph_size;
+	while(k < GRAPH_SIZE){
+		i = totalID / GRAPH_SIZE;
+		j = totalID % GRAPH_SIZE;
 		Dik = D(i,k);
 		Dkj = D(k,j);
 		counter = 0;
@@ -229,11 +229,11 @@ __global__ void calcWithAtomic1DShared(int* output, int graph_size, int workPerT
 			if (Dik + Dkj < D(i, j)) {
 				D(i, j) = Dik + Dkj;
 			}
-			if (j + 1 < graph_size) {
+			if (j + 1 < GRAPH_SIZE) {
 				j++;
 				Dkj = D(k,j);
 			}else {
-				i += ((i+1)<graph_size);
+				i += ((i+1)<GRAPH_SIZE);
 				j = 0;
 				Dik = D(i,k);
 				Dkj = D(k,j);
@@ -251,7 +251,7 @@ __global__ void calcWithAtomic1DShared(int* output, int graph_size, int workPerT
 	}
 }
 
-__global__ void calcWithoutAtomic(int* output, int graph_size, int k, int workPerThread)
+__global__ void calcWithoutAtomic(int* output, int k, int workPerThread)
 {
 	int i = (blockIdx.x * blockDim.x + threadIdx.x) * workPerThread;
 	int j = (blockIdx.y * blockDim.y + threadIdx.y) * workPerThread;
@@ -264,7 +264,7 @@ __global__ void calcWithoutAtomic(int* output, int graph_size, int k, int workPe
 		for (int y = j; y < j + workPerThread; y++)
 		{
 			//ky = D(k, y);
-			if (x < graph_size && y < graph_size) {
+			if (x < GRAPH_SIZE && y < GRAPH_SIZE) {
 				if (D(x, k) + D(k, y) < D(x, y)) {
 					D(x, y) = D(x, k) + D(k, y);
 				}
@@ -274,7 +274,7 @@ __global__ void calcWithoutAtomic(int* output, int graph_size, int k, int workPe
 }
 
 /*
-__global__ void calcSharedWithAtomic(int* output, int graph_size)
+__global__ void calcSharedWithAtomic(int* output, )
 {
 	int i = (blockIdx.x * blockDim.x + threadIdx.x) * WORK_SIZE;
 	int j = (blockIdx.y * blockDim.y + threadIdx.y) * WORK_SIZE;
@@ -284,15 +284,15 @@ __global__ void calcSharedWithAtomic(int* output, int graph_size)
 	__shared__ int valuesX[NTHREADS][NTHREADS];
 	__shared__ int valuesY[NTHREADS][NTHREADS][WORK_SIZE];
 
-	while (k < graph_size) {
+	while (k < GRAPH_SIZE) {
 		for (int x = i; x < i + WORK_SIZE; x++)
 		{
-			if (x < graph_size) {
+			if (x < GRAPH_SIZE) {
 				valuesX[threadIdx.x][threadIdx.y] = D(x, k);
 			}
 			for (int y = j; y < j + WORK_SIZE; y++)
 			{
-				if (x < graph_size && y < graph_size) {
+				if (x < GRAPH_SIZE && y < GRAPH_SIZE) {
 					if (x == i) {
 						valuesY[threadIdx.x][threadIdx.y][y-j] = D(k, y);
 					}
@@ -315,7 +315,7 @@ __global__ void calcSharedWithAtomic(int* output, int graph_size)
 }
 
 
-__global__ void calcSharedWithoutAtomic(int* output, int graph_size, int k, int workPerThread)
+__global__ void calcSharedWithoutAtomic(int* output, , int k, int workPerThread)
 {
 	int i = (blockIdx.x * blockDim.x + threadIdx.x) * workPerThread;
 	int j = (blockIdx.y * blockDim.y + threadIdx.y) * workPerThread;
@@ -335,7 +335,7 @@ __global__ void calcSharedWithoutAtomic(int* output, int graph_size, int k, int 
 	for (int x = i; x < i + workPerThread; x++)
 	{
 		
-		if (x < graph_size) {
+		if (x < GRAPH_SIZE) {
 			valuesX[xT][yT] = D(x, k);
 		}/*
 		if (threadIdx.x == 0 && threadIdx.y == 0) {
@@ -346,7 +346,7 @@ __global__ void calcSharedWithoutAtomic(int* output, int graph_size, int k, int 
 		{
 			//values[threadX][threadY] = D(x, k);
 			//ky = D(k, y);
-			if (x < graph_size && y < graph_size) {
+			if (x < GRAPH_SIZE && y < GRAPH_SIZE) {
 				if (x == i) {
 					valuesY[currT][y - j] = D(k, y);
 				}
@@ -359,7 +359,7 @@ __global__ void calcSharedWithoutAtomic(int* output, int graph_size, int k, int 
 }
 
 /*
-__global__ void sharedCalcWithoutAtomic(int* output, int graph_size, int k, const int workPerThread)
+__global__ void sharedCalcWithoutAtomic(int* output, , int k, const int workPerThread)
 {
 	//size_t workSize = (workPerThread * blockDim.x)^2;
 
@@ -378,7 +378,7 @@ __global__ void sharedCalcWithoutAtomic(int* output, int graph_size, int k, cons
 		__syncthreads;
 		for (int y = j; y < j + workPerThread; y++)
 		{
-			if (x < graph_size && y < graph_size) {
+			if (x < GRAPH_SIZE && y < GRAPH_SIZE) {
 				if (D(x, k) + D(k, y) < D(x, y)) {
 					D(x, y) = D(x, k) + D(k, y);
 				}
@@ -390,13 +390,13 @@ __global__ void sharedCalcWithoutAtomic(int* output, int graph_size, int k, cons
 
 
 //sequencial GPU
-__global__ void calculateSequencialGPU(int* output, int graph_size)
+__global__ void calculateSequencialGPU(int* output)
 {
 	int i, j, k;
 
-	for (k = 0; k < graph_size; k++) {
-		for (i = 0; i < graph_size; i++) {
-			for (j = 0; j < graph_size; j++) {
+	for (k = 0; k < GRAPH_SIZE; k++) {
+		for (i = 0; i < GRAPH_SIZE; i++) {
+			for (j = 0; j < GRAPH_SIZE; j++) {
 				if (D(i, k) + D(k, j) < D(i, j)) {
 					D(i, j) = D(i, k) + D(k, j);
 				}
@@ -405,11 +405,11 @@ __global__ void calculateSequencialGPU(int* output, int graph_size)
 	}
 }
 
-void floyd_warshall_gpu(const int* graph, int graph_size, int* output) {
+void floyd_warshall_gpu(const int* graph, int* output) {
 
 	int* dev_a;
-	cudaMalloc(&dev_a, sizeof(int) * graph_size * graph_size);
-	cudaMemcpy(dev_a, graph, sizeof(int) * graph_size * graph_size, cudaMemcpyHostToDevice);
+	cudaMalloc(&dev_a, sizeof(int) * GRAPH_SIZE * GRAPH_SIZE);
+	cudaMemcpy(dev_a, graph, sizeof(int) * GRAPH_SIZE * GRAPH_SIZE, cudaMemcpyHostToDevice);
 
 	cudaDeviceProp prop;
 	cudaGetDeviceProperties(&prop, 0);
@@ -425,7 +425,7 @@ void floyd_warshall_gpu(const int* graph, int graph_size, int* output) {
 	//int maxBlocksPerAxis = sqrt(prop.multiProcessorCount * (prop.maxThreadsPerMultiProcessor / (NThreads * NThreads)));
 	/*
 	int maxThreadsPerAxis = maxBlocksPerAxis * NThreads;
-	int workPerThread = ((graph_size) / maxThreadsPerAxis) + 1;
+	int workPerThread = ((GRAPH_SIZE) / maxThreadsPerAxis) + 1;
 
 	fprintf(stderr, "work %d\nthreads %d\n", workPerThread, NThreads);
 	*/
@@ -438,7 +438,7 @@ void floyd_warshall_gpu(const int* graph, int graph_size, int* output) {
 	//int t = 64;
 	//int b = prop.multiProcessorCount * (prop.maxThreadsPerMultiProcessor / t);
 	
-	//calculateSequencialGPU << <1, 1 >> > (dev_a, graph_size);
+	//calculateSequencialGPU << <1, 1 >> > (dev_a, GRAPH_SIZE);
 
 	/*
 	int blocks;
@@ -446,7 +446,7 @@ void floyd_warshall_gpu(const int* graph, int graph_size, int* output) {
 	cudaOccupancyMaxPotentialBlockSize (&blocks, &threads, calcOnePosPerThread, 0, GRAPH_SIZE*GRAPH_SIZE);
 	//blocks = sqrt(blocks);
 	//threads = sqrt(threads);
-	int workPerThread = ((graph_size*graph_size) / (threads*blocks));// + 1;
+	int workPerThread = ((GRAPH_SIZE*GRAPH_SIZE) / (threads*blocks));// + 1;
 	printf("workPerThread to be defined as %d blocks= %d threadsPerBlocks = %d\n", workPerThread, blocks, threads);
 	*/
 /*	
@@ -463,12 +463,12 @@ void floyd_warshall_gpu(const int* graph, int graph_size, int* output) {
 
 	
 	
-	for (int k = 0; k < graph_size; k++) {
-		//calcSharedWithoutAtomic <<<blocks, threads>>> (dev_a, graph_size, k);
-		//calcWithoutAtomic <<<dim3(blocks,blocks), dim3(threads,threads)>>> (dev_a, graph_size, k, workPerThread);
-		//calcWithoutAtomic1D << <blocks, threads >> > (dev_a, graph_size, k, workPerThread);
-		calcOnePosPerThread <<<dim3(GRAPH_SIZE/NTHREADS,GRAPH_SIZE/NTHREADS), dim3(NTHREADS,NTHREADS)>>>(dev_a, graph_size,k);
-		//calThreadPerColumn <<<b, t >>> (dev_a, graph_size, t * b, k);
+	for (int k = 0; k < GRAPH_SIZE; k++) {
+		//calcSharedWithoutAtomic <<<blocks, threads>>> (dev_a, GRAPH_SIZE, k);
+		//calcWithoutAtomic <<<dim3(blocks,blocks), dim3(threads,threads)>>> (dev_a, GRAPH_SIZE, k, workPerThread);
+		//calcWithoutAtomic1D << <blocks, threads >> > (dev_a, GRAPH_SIZE, k, workPerThread);
+		calcOnePosPerThread <<<dim3(GRAPH_SIZE/NTHREADS,GRAPH_SIZE/NTHREADS), dim3(NTHREADS,NTHREADS)>>>(dev_a, k);
+		//calThreadPerColumn <<<b, t >>> (dev_a, GRAPH_SIZE, t * b, k);
 	}
 	
 	
@@ -476,23 +476,23 @@ void floyd_warshall_gpu(const int* graph, int graph_size, int* output) {
 	
 	//fprintf(stderr, "blocks: %d\nthreads: %d\n", blocks, threads);
 	
-	//calcWithAtomic <<<dim3(blocks,blocks), dim3(threads,threads)>>> (dev_a, graph_size, workPerThread);
-	//calcWithAtomic1D<<<blocks, threads>>> (dev_a, graph_size, workPerThread);
-	//calcWithAtomic1DShared<<<blocks, threads>>> (dev_a, graph_size, workPerThread);
-	//calcSharedWithAtomic <<<blocks, threads >>> (dev_a, graph_size);
-	//calcSIMDSharedWithAtomic <<<blocks, threads >>> (dev_a, graph_size);
+	//calcWithAtomic <<<dim3(blocks,blocks), dim3(threads,threads)>>> (dev_a, GRAPH_SIZE, workPerThread);
+	//calcWithAtomic1D<<<blocks, threads>>> (dev_a, GRAPH_SIZE, workPerThread);
+	//calcWithAtomic1DShared<<<blocks, threads>>> (dev_a, GRAPH_SIZE, workPerThread);
+	//calcSharedWithAtomic <<<blocks, threads >>> (dev_a, GRAPH_SIZE);
+	//calcSIMDSharedWithAtomic <<<blocks, threads >>> (dev_a, GRAPH_SIZE);
 
-	cudaError_t err = cudaMemcpy(output, dev_a, sizeof(int) * graph_size * graph_size, cudaMemcpyDeviceToHost);
+	cudaError_t err = cudaMemcpy(output, dev_a, sizeof(int) * GRAPH_SIZE * GRAPH_SIZE, cudaMemcpyDeviceToHost);
 	gpuErrchk(err);
 	cudaFree(dev_a);
 }
 
-void floyd_warshall_cpu(const int* graph, int graph_size, int* output) {
+void floyd_warshall_cpu(const int* graph, int* output) {
 	int i, j, k;
 
-	for (k = 0; k < graph_size; k++) {
-		for (i = 0; i < graph_size; i++) {
-			for (j = 0; j < graph_size; j++) {
+	for (k = 0; k < GRAPH_SIZE; k++) {
+		for (i = 0; i < GRAPH_SIZE; i++) {
+			for (j = 0; j < GRAPH_SIZE; j++) {
 				if (D(i, k) + D(k, j) < D(i, j)) {
 					D(i, j) = D(i, k) + D(k, j);
 				}
@@ -534,11 +534,11 @@ int main(int argc, char** argv) {
 	output_gpu = (int*)malloc(size);
 	assert(output_gpu);
 
-	generate_random_graph(graph, GRAPH_SIZE);
+	generate_random_graph(graph);
 
 	fprintf(stderr, "running on cpu...\n");
 	TIMER_START();
-	memcpy(output, graph, sizeof(int) * graph_size * graph_size);
+	memcpy(output_cpu, graph, sizeof(int) * GRAPH_SIZE * GRAPH_SIZE);
 
 	//QueryPerformanceFrequency(&frequency);
 	//QueryPerformanceCounter(&start);
@@ -554,7 +554,7 @@ int main(int argc, char** argv) {
 	TIMER_START();
 	//QueryPerformanceFrequency(&frequency);
 	//QueryPerformanceCounter(&start);
-	floyd_warshall_gpu(graph, GRAPH_SIZE, output_gpu);
+	floyd_warshall_gpu(graph, output_gpu);
 	TIMER_STOP();
 	fprintf(stderr, "%f seconds\n", time_delta);
 
@@ -563,21 +563,13 @@ int main(int argc, char** argv) {
 	//fprintf(stderr, "%f seconds\n", interval);
 
 
-/*
+
 	if (memcmp(output_cpu, output_gpu, size) != 0) {
 		fprintf(stderr, "FAIL!\n");
 	}
 	else {
 		fprintf(stderr, "Verified!\n");
-	}*/
-
-		for (int i = 0; i < GRAPH_SIZE*GRAPH_SIZE; i++) {
-			if(output_cpu[i] != output_gpu[i]){
-				fprintf(stderr, "FAIL!\n");
-				break;
-			}
-		}
-		fprintf(stderr, "Verified!\n");
-
+	}
+	
 	return 0;
 }
