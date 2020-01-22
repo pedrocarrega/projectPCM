@@ -361,8 +361,29 @@ In this implementation as we said, the logic is the same as the previous version
 To show the results and effectiveness of our solutions we ran two sets of tests:
 \begin{itemize}
 	\item We ran both sequential versions with the graph size at 1000, in order to show the weakness of the GPU in single threaded tasks.
-	\item We ran all our implementations, minus the sequential GPU, in order to show the impact of our improvements made on the computation of our problem.
+	\item We ran all our implementations with a graph size of 2048, minus the sequential GPU, in order to show the impact of our improvements made on the computation of our problem.
 \end{itemize}
+
+\begin{table}[htbp]
+	\caption{Results Table} %to be changed
+	\begin{center}
+		\begin{tabular}{|c|c|c|c|}
+		\hline
+			\textbf{\textit{CPU Sequential}} & \textbf{\textit{GPU Parallel}} & \textbf{\textit{Atomic GPU}} & \textbf{\textit{Shared Atomic GPU}} \\ \hline
+			\textbf{\textit{40,289}} & \textbf{\textit{5,626}} & \textbf{\textit{3,179}} & \textbf{\textit{2,541}} \\ \hline
+			\textbf{\textit{40,211}} & \textbf{\textit{5,622}} & \textbf{\textit{3,198}} & \textbf{\textit{2,729}} \\ \hline
+			\textbf{\textit{40,215}} & \textbf{\textit{5,639}} & \textbf{\textit{3,207}} & \textbf{\textit{2,793}} \\ \hline
+			\textbf{\textit{40,222}} & \textbf{\textit{5,625}} & \textbf{\textit{3,229}} & \textbf{\textit{2,819}} \\ \hline
+			\textbf{\textit{40,219}} & \textbf{\textit{5,614}} & \textbf{\textit{3,226}} & \textbf{\textit{2,749}} \\ \hline
+			\textbf{\textit{40,889}} & \textbf{\textit{5,617}} & \textbf{\textit{3,205}} & \textbf{\textit{2,752}} \\ \hline
+			\textbf{\textit{40,892}} & \textbf{\textit{5,613}} & \textbf{\textit{3,231}} & \textbf{\textit{2,549}} \\ \hline
+			\textbf{\textit{40,199}} & \textbf{\textit{5,627}} & \textbf{\textit{3,205}} & \textbf{\textit{2,543}} \\ \hline
+			\textbf{\textit{40,221}} & \textbf{\textit{5,649}} & \textbf{\textit{3,207}} & \textbf{\textit{2,551}} \\ \hline
+			\textbf{\textit{40,224}} & \textbf{\textit{5,617}} & \textbf{\textit{3,159}} & \textbf{\textit{2,731}} \\ \hline
+	\end{tabular}
+	\label{tab1}
+	\end{center}
+	\end{table}
 
 \begin{comment}
 	
