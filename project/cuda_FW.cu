@@ -24,9 +24,9 @@ inline void gpuAssert(cudaError_t code, const char* file, int line, bool abort =
 	}
 }
 
-#define GRAPH_SIZE 2048 * 3
-#define WORK_SIZE 2304
-#define NTHREADS 1024
+#define GRAPH_SIZE 2048
+#define WORK_SIZE 16
+#define NTHREADS 32
 #define BLOCKS 16
 
 #define EDGE_COST(graph, GRAPH_SIZE, a, b) graph[a * GRAPH_SIZE + b]
@@ -117,8 +117,8 @@ __global__ void calcWithAtomic(int* output, int workPerThread)
 			for (int y = j; y < j + workPerThread; y++)
 			{
 				//if (x < GRAPH_SIZE && y < GRAPH_SIZE) {
-					if (D(x, k) + D(k, y) < D(x, y)) {
-						D(x, y) = D(x, k) + D(k, y);
+					if (D(x,k) + D(k, y) < D(x, y)) {
+						D(x, y) = D(x,k) + D(k, y);
 					}
 				//}
 			}
@@ -263,57 +263,55 @@ __global__ void calcWithoutAtomic(int* output, int k, int workPerThread)
 		for (int y = j; y < j + workPerThread; y++)
 		{
 			//ky = D(k, y);
-			if (x < GRAPH_SIZE && y < GRAPH_SIZE) {
+			//if (x < GRAPH_SIZE && y < GRAPH_SIZE) {
 				if (D(x, k) + D(k, y) < D(x, y)) {
 					D(x, y) = D(x, k) + D(k, y);
 				}
-			}
+			//}
 		}
 	}
 }
 
-/*
-__global__ void calcSharedWithAtomic(int* output, )
+
+__global__ void calcSharedWithAtomic(int* output)
 {
 	int i = (blockIdx.x * blockDim.x + threadIdx.x) * WORK_SIZE;
 	int j = (blockIdx.y * blockDim.y + threadIdx.y) * WORK_SIZE;
 	int k = 0;
 	int numBlocks = gridDim.x * gridDim.y;
-	
 	__shared__ int valuesX[NTHREADS][NTHREADS];
 	__shared__ int valuesY[NTHREADS][NTHREADS][WORK_SIZE];
+	//int Dxk;
 
 	while (k < GRAPH_SIZE) {
 		for (int x = i; x < i + WORK_SIZE; x++)
 		{
-			if (x < GRAPH_SIZE) {
-				valuesX[threadIdx.x][threadIdx.y] = D(x, k);
-			}
+			valuesX[threadIdx.x][threadIdx.y] = D(x,k);
 			for (int y = j; y < j + WORK_SIZE; y++)
 			{
-				if (x < GRAPH_SIZE && y < GRAPH_SIZE) {
-					if (x == i) {
-						valuesY[threadIdx.x][threadIdx.y][y-j] = D(k, y);
-					}
-					if (valuesX[threadIdx.x][threadIdx.y] + valuesY[threadIdx.x][threadIdx.y][y - j] < D(x, y)) {
-						D(x, y) = valuesX[threadIdx.x][threadIdx.y] + valuesY[threadIdx.x][threadIdx.y][y - j];
-					}
+				if (x == i) {
+					valuesY[threadIdx.x][threadIdx.y][y - j] = D(k, y);
+				}
+				if (valuesX[threadIdx.x][threadIdx.y] + valuesY[threadIdx.x][threadIdx.y][y - j] < D(x, y)) {
+					D(x, y) = valuesX[threadIdx.x][threadIdx.y] + valuesY[threadIdx.x][threadIdx.y][y - j];
 				}
 			}
 		}
 
 		k++;
 
-		if (threadIdx.x == 0 && threadIdx.y) {
+		if (threadIdx.x == 0 && threadIdx.y == 0) {
 			atomicAdd(&barrier,1);
-			while (barrier % numBlocks != 0);
+			while ((atomicCAS(&barrier, numBlocks, numBlocks) % numBlocks) != 0){
+				//printf("k=%d  | ",k);
+			}
 		}
 		__syncthreads();
 
 	}
 }
 
-
+/*
 __global__ void calcSharedWithoutAtomic(int* output, , int k, int workPerThread)
 {
 	int i = (blockIdx.x * blockDim.x + threadIdx.x) * workPerThread;
@@ -442,10 +440,12 @@ void floyd_warshall_gpu(const int* graph, int* output) {
 	
 	int blocks;
 	int threads;
-	cudaOccupancyMaxPotentialBlockSize (&blocks, &threads, calcWithoutAtomic1D, 0, GRAPH_SIZE*GRAPH_SIZE);
+	//cudaOccupancyMaxPotentialBlockSize (&blocks, &threads, calcSharedWithAtomic, 0, GRAPH_SIZE*GRAPH_SIZE);
 	//blocks = sqrt(blocks);
 	//threads = sqrt(threads);
-	int workPerThread = ((GRAPH_SIZE*GRAPH_SIZE) / (threads*blocks));// + 1;
+	blocks = 4;
+	threads = 32;
+	int workPerThread = ((GRAPH_SIZE) / (threads*blocks));// + 1;
 	printf("workPerThread= %d, blocks= %d threadsPerBlocks = %d\n", workPerThread, blocks, threads);
 
 	
@@ -480,8 +480,8 @@ void floyd_warshall_gpu(const int* graph, int* output) {
 	
 	//calcWithAtomic <<<dim3(blocks,blocks), dim3(threads,threads)>>> (dev_a, workPerThread);
 	//calcWithAtomic1D<<<blocks, threads>>> (dev_a, WORK_SIZE);
-	calcWithAtomic1DShared<<<blocks, threads>>> (dev_a);
-	//calcSharedWithAtomic <<<blocks, threads >>> (dev_a);
+	//calcWithAtomic1DShared<<<blocks, threads>>> (dev_a);
+	//calcSharedWithAtomic <<<dim3(blocks,blocks), dim3(threads,threads) >>> (dev_a);
 
 	cudaError_t err = cudaMemcpy(output, dev_a, sizeof(int) * GRAPH_SIZE * GRAPH_SIZE, cudaMemcpyDeviceToHost);
 	gpuErrchk(err);
@@ -507,8 +507,8 @@ int main(int argc, char** argv) {
 	LARGE_INTEGER frequency;
 	LARGE_INTEGER start;
 	LARGE_INTEGER end;
-	double interval;
-*/ 
+	double interval;*/
+
 
 	#define TIMER_START() gettimeofday(&tv1, NULL)
 	#define TIMER_STOP()                                                           \
@@ -518,7 +518,6 @@ int main(int argc, char** argv) {
 
   struct timeval tv1, tv2, tv;
   float time_delta;	
-  
 
   int* graph, * output_cpu, * output_gpu;
 	int size;
@@ -543,7 +542,7 @@ int main(int argc, char** argv) {
 
 	//QueryPerformanceFrequency(&frequency);
 	//QueryPerformanceCounter(&start);
-	//floyd_warshall_cpu(graph, output_cpu);
+	floyd_warshall_cpu(graph, output_cpu);
 	TIMER_STOP();
 	fprintf(stderr, "%f seconds\n", time_delta);
 
