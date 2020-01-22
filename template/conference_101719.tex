@@ -13,7 +13,7 @@
     T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
 \begin{document}
 
-\title{A Study in Cuda Usage*\\
+\title{A Study in CUDA Usage*\\
 {\footnotesize \textsuperscript{*}Note: Sub-titles are not captured in Xplore and
 should not be used}
 }
@@ -50,9 +50,9 @@ To make a method to be computed in the GPU you need to declare it with the "\_\_
 
 When launching a kernel it has to be declared the number of threads per block and the number of blocks that are going to be used. It should be taken into consideration the fact that blocks are composed of warps which are a set of 32 threads, so when declaring the number of blocks being used, it should be a multiple of 32 since all threads in a warp use the same program counter. Therefor if the number of threads in the blocks is not multiple of 32 there will be threads that are busy, waiting for the other threads in their warp that are actually doing some work.
 
-The composition of the kernel grid has a huge impact on performance, with that in mind a programmer of GPGPU (General Purpose Graphics Processing Unit) should aim to use the largest amount of threads per block possible.%REVER POIS NEM SEMPRE É VERDADE
+The composition of the kernel grid has a huge impact on performance, with that in mind a programmer of GPGPU (General Purpose Graphics Processing Unit), in most scenarios, should aim to use the largest amount of threads per block possible.
 
-It also needs to be considered that the GPU does not have access to the memory used by the CPU, so all pointers used as input for the GPU kernel will have to be allocated and copied to the GPU global memory before being able to access it. The pointers of the memory that were allocated need to be passed through the parameters of the kernel call so that they can be used by the GPU. In case of a primitive type, it can be passed only by the parameters of the kernel (i.e. int) and does not need to allocate memory on the GPU memory manually. After all the computations are finished, the result should be accessible by the CPU so that it can copy it back to the CPU and do what it needs with it. To do that it needs to copy the result similarly to the opposite operation but this time from the device to the host. Then the memory that was allocated in the GPU memory should be freed so there are no memory leaks just like in the CPU. In the next figure you can see an example of a input being copied to the GPU, the call of the kernel, the corresponding composition of the grid which will be represented in the (NUMERO DA FIGURA COM A DISPOSICAO) and then the result being copied back to the CPU memory:
+It also needs to be considered that the GPU does not have access to the memory used by the CPU, so all pointers used as input for the GPU kernel will have to be allocated and copied to the GPU global memory before being able to access it. The pointers of the memory that were allocated need to be passed through the parameters of the kernel call so that they can be used by the GPU. In case of a primitive type, it can be passed only by the parameters of the kernel (i.e. int) and does not need to allocate memory on the GPU memory manually. After all the computations are finished, the result should be accessible by the CPU so that it can copy back the result to the CPU and do what it needs with it. To do that it needs to copy the result similarly to the opposite operation but this time from the device to the host. Then the memory that was allocated in the GPU memory should be freed so there are no memory leaks just like in the CPU. In the next figure you can see an example of a input being copied to the GPU, the call of the kernel, the corresponding composition of the grid which will be represented in the (Fig.1) and then the result being copied back to the CPU memory:
 \begin{lstlisting}[language=C++, caption=CUDA Example]
 int* matrix_pointer_device;
 
@@ -72,26 +72,26 @@ cudaFree(cudaMemcpyDeviceToHost);
 \end{lstlisting}
 
 \begin{figure}[htbp]
-	\centerline{\includegraphics{figures/gridExampleTransparant.png}}
+	\centerline{\includegraphics[width=\linewidth]{figures/gridExampleTransparant.png}}
 	\caption{Example of a grid composition and block composition.}
 	\label{fig1}
 \end{figure}
 
-
 \section{Background}
 
+%how FW is computed
 This is an optional section, as it depends on your project. In projects where a given specific knowledge is required to understand the article, you should give a brief introduction of the required concepts. In the case of genetic algorithms, you should present the basic algorithm in this section.
 
 
 \section{Approach}
 
-As said before, the grid can be 1D, 2D or 3D. Our approach was to use 1D, since if for example we used 2D, we would have to do the square route of the number of blocks per thread and the number of blocks in the grid. By doing so we would possibly be wasting some threads when both numbers are not perfect quares, by doing so then it would not be archived the best occupancy.
+As said before, the grid can be 1D, 2D or 3D. Our approach was to use 1D, since if for example we used 2D, we would have to do the square route of the number of blocks per thread and the number of blocks in the grid. By doing so we would possibly be wasting some threads when both numbers are not perfect squares, by doing so then it would not be archived the best occupancy.
 
 Since by default when using GPGPU the number of computation are enormous, then one thread per computation is not possible, so before the launch of the kernel we used cudaOccupancyMaxPotentialBlockSize to determine the number of threads per block and number of blocks in the grid, after that we calculated the number of positions each thread would be responsible of calculating. By doing so, we would not be adding the overhead of the scheduling of each thread that would happen if there were more threads than those the GPU could run simultaneously without scheduling them.
 
 That number would be the determined the following way:
 
-workPerThread =\frac{graph_size^2}{blocksInGrid*threadsPerBlock}
+workPerThread =$\frac{graph_size^2}{blocksInGrid*threadsPerBlock}$
 
 If the total positions in the matrix is not a multiple of the total number of threads launch then it shoud be incremented by one the value of workPerThread so that it covers the possible loss of integer division.
 
@@ -107,43 +107,72 @@ In order to demonstrate the effectiveness of the usage of GPGPUs in the processi
 of some problems we started by implementing our problem in the CPU so we could use the results as a reference point to our others solutions.
 %nao sei se devia por este paragrafo abaixo
 
-This solution will only use one thread of the CPU as the purpose of this paper is to demonstrate the impact of the improvements that can be made on the GPGPU.
-The graph we will be using for the Floyd-Warshall problem will be a two dimensional graph, in another words, a 2D grid.
-With that in mind, we by creating 3 \textit{for} cycles each will start at 0 and will iterate a number of times corresponding to the size of the graph.
+This solution will only use one thread of the CPU as the purpose of this paper is to demonstrate the impact of the improvements that can be made while using a GPGPU.
+%The graph we will be using for the Floyd-Warshall problem will be a two dimensional graph, in another words, a 2D grid.
+With that in mind, we implemented 3 nested loops where each will start at 0 and will iterate the number of times corresponding to the size of the graph.
 The second and third cycle will correspond to the X and Y coordinates, respectively, 
 while the first cycle will match an intermediate point for which the shortest path will be computed.
 %nao sei se meto esta ultima parte.
-Inside the last cycle it will be compared the direct distance of X to Y with the addition of the distances 
-of X to K and K to Y, in case the latter is smaller the distance of X to Y is updated with the value of the addition.
+Inside the last cycle we will compare the direct distance of X to Y with the addition of the distances of X to K and K to Y, in case the latter is smaller the distance of X to Y is updated with the value of the addition.
+Below it is possible to see our implementation:
+
+\begin{lstlisting}[language=C++, caption=Sequential CPU]
+void floyd_warshall_cpu(const int* graph, int* output) {
+	
+	for (int k = 0; k < GRAPH_SIZE; k++) {
+		for (int i = 0; i < GRAPH_SIZE; i++) {
+			for (int j = 0; j < GRAPH_SIZE; j++) {
+				if (D(i, k) + D(k, j) < D(i, j)) {
+					D(i, j) = D(i, k) + D(k, j);
+				}
+			}
+		}
+	}
+}
+\end{lstlisting}
 
 \subsection{Sequential GPU}
-To start our learning of how to program in the GPU we will start by doing the most basic implementation possible, 
-one thread computing the entirety of the Floyd-Warshall problem.
+To start our learning of how to program in the GPU we will start by doing the most basic implementation possible, one thread computing the entirety of the Floyd-Warshall problem.
 GPU functions work like any other CPU functions barring two simple differences. 
 
-First, a GPU function has either the \textit{\_\_global\_\_} or the \textit{\_\_device\_\_} \dots%k usar aqui? tag? keyword?
-where \textit{\_\_global\_\_} is a function that will be called by the CPU but run on the GPU 
-and \textit{\_\_device\_\_} is a function that is called by the GPU to be run by the GPU. 
-This \dots can also be used to initialize a global variable on the GPU.
+First, a GPU function has either the "\_\_global\_\_" or the "\_\_device\_\_" qualifier.
+The "\_\_global\_\_" qualifier indicates a function that will be called by the CPU but run on the GPU and "\_\_device\_\_" is a function that is called by the GPU to be run by the GPU. 
+This qualifier can also be used to initialize a global variable on the GPU.
 
-Second, the syntax of the call of a GPU function also differs. Kernels work on a grid basis, and such, you need to indicate the grid your program will be working on. 
+Second, the syntax of the call of a GPU function also differs. Kernels work on a grid basis, and such, you need to indicate the grid in which your program will be working on. 
 That indication is made by placing
 \begin{math} <<< X, Y >>> \end{math}
-after the name of the function, where X represents the number of blocks to be used and Y the number of threads to be used per block, respectively. 
+after the name of your function, where X represents the number of blocks to be used and Y the number of threads to be used per block, respectively. 
 
 Having copied our graph to the GPU memory, we call our kernel with one block and one thread per block, 
 Inside our GPU function we apply the same programing logic that was applied for the sequential CPU version of the Floyd-Warshall problem. 
-We create 3 \textit{for} cycles to iterate through our graph and compute our problem.
+We create 3 nested cycles to iterate through our graph and compute our problem.
+
+Our implementation will be the following:
+\begin{lstlisting}[language=C++, caption=Sequential CUDA]
+	__global__ void calculateSequencialGPU(int* output)
+{
+	for (int k = 0; k < GRAPH_SIZE; k++) {
+		for (int i = 0; i < GRAPH_SIZE; i++) {
+			for (int j = 0; j < GRAPH_SIZE; j++) {
+				if (D(i, k) + D(k, j) < D(i, j)) {
+					D(i, j) = D(i, k) + D(k, j);
+				}
+			}
+		}
+	}
+}
+\end{lstlisting}
 
 
 \subsection{Parallel GPU}
 Using a single thread to compute a problem on the GPU goes against it's strengths. 
 Due to the low core clock speed, the strength of the GPU comes from it's high thread count being able to compute multiple values at the same time. 
 
-When running a function parallel on the GPU each thread will run it's own instance of that same function, 
-in other words, the implementation of the function now needs to take into consideration how we partition the work load for each thread. 
-Having decided the number of threads per blocks we want to use, the most common way to split the work load is to 
-use that number to divide the size of our problem, this way obtaining the number of blocks we are going to use to compute our problem. 
+When running a function parallel on the GPU each thread will run it's own instance of that same function, in other words, the implementation of the function now needs to take into consideration how we partition the work load for each thread. 
+Having decided the number of threads per blocks we want to use, the most common way to split the work load is to use that number to divide the size of our problem, this way obtaining the number of blocks we are going to use to compute our problem. 
+
+With that said, like mentioned before, that method is not ideal for the problem at hand due to the fact that the number of positions in need of computation is much greater than the number of threads available. As we increase the graph size the overhead added by the scheduling of the GPU will 
 
 Obviously we are going to follow that same logic, but seeing that our problem uses a 2D grid, 
 applying a 2D grid to our blocks and threads. Such can be made using \textit{dim3()} \dots, 
@@ -158,7 +187,8 @@ The kernel is now called K times by the CPU, where K goes from 0 to GRAPH\_SIZE,
 each thread will now be attributed two coordinates determined by their coordinates in the 2D grid. 
 If the coordinates are withing the scope of the problem they will try to compute the shortest path between X to Y, using the value of K provided by the CPU when the kernel is called, updating the value if needed. 
 %In order to improve performance, to the values of X and Y are added the block dimension multiplied by the dimension of the grid. After, if the coordinates are still within the scope of the problem, the thread will compute again using the new coordinates.%compute? 
-
+\begin{comment}
+	
 \subsection{Work Load}
 
 How we partition the work load for each thread may have a big impact on the performance of our solution. Like mentioned before, the major strength of the GPU is it's high thread count so that it can compute multiple values at the same time.
@@ -188,6 +218,8 @@ To show the importance of using a correct work load we will implement another so
 
 We determine the coordinates like previous implementations with the difference that to that number we multiply the number of positions each thread will need to compute. %fazemos isso pk....
 Then we create two \textit{for} cycles that go from those coordinates to that number plus the number of positions the thread will need to compute. If the coordinates are within the scope of the problem the thread will then compute.
+\end{comment}
+
 
 \subsection{Synchronization}
 
@@ -521,11 +553,11 @@ copy& More table copy$^{\mathrm{a}}$& &  \\
 \end{center}
 \end{table}
 
-\begin{figure}[htbp]
-\centerline{\includegraphics{fig1.png}}
-\caption{Example of a figure caption.}
-\label{fig}
-\end{figure}
+%\begin{figure}[htbp]
+%\centerline{\includegraphics{fig1.png}}
+%\caption{Example of a figure caption.}
+%\label{fig}
+%\end{figure}
 
 Figure Labels: Use 8 point Times New Roman for Figure labels. Use words 
 rather than symbols or abbreviations when writing Figure axis labels to 
