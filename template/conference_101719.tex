@@ -256,7 +256,7 @@ Since now we will only be calling the kernel once every thread must now store it
 We will be using \_\_syncthreads() so that the other threads await for the threads in each block which are responsible for the block synchronization.
 
 
-\begin{lstlisting}[language=C++, caption=CUDA Example with memory improvements]
+\begin{lstlisting}[language=C++, caption=CUDA implementation with synchronization]
 __global__ void calcWithAtomic1D(int* output, int* syncGrid)
 {
 	int totalID = blockIdx.x * blockDim.x * WORK_SIZE + threadIdx.x * WORK_SIZE;
@@ -308,7 +308,7 @@ Considering that, it should always be taken into advantage the usage of both reg
 
 The following implementation follows the logic explained in a previous subsection, but now using registry memory to save D(i,k) that will be used multiple times, this way we avoid multiple reads from the global memory saving some time in each thread execution resulting in a better performance of the GPU kernel.
 
-\begin{lstlisting}[language=C++, caption=CUDA Example with memory improvements]
+\begin{lstlisting}[language=C++, caption=CUDA implementation with memory improvements]
 __global__ void calcWithAtomic1DMem(int* output, int* syncGrid)
 {
 	int totalID = blockIdx.x * blockDim.x * WORK_SIZE + threadIdx.x * WORK_SIZE;
