@@ -82,23 +82,22 @@ This is an optional section, as it depends on your project. In projects where a 
 
 
 \section{Approach}
-
+Since by default when using GPGPU the number of computation are enormous, then one thread per computation is something not recommended so to avoid thread scheduling. Considering that, each thread will need to do a bigger ammout of computations. By doing so, we will not be adding the overhead of scheduling each thread. The scheduling happens if there are more threads than those the GPU can run simultaneously without the need to scheduled them.
 
 
 \section{Implementation Details}
 
 As said before, the grid can be 1D, 2D or 3D. Our approach was to use 1D, since if for example we used 2D, we would have to do the square route of the number of blocks per thread and the number of blocks in the grid. By doing so we would possibly be wasting some threads when both numbers are not perfect squares, by doing so then it would not be archived the best occupancy.
 
-Since by default when using GPGPU the number of computation are enormous, then one thread per computation is something not recommended, so before the launch of the kernel we used cudaOccupancyMaxPotentialBlockSize to determine the number of threads per block and number of blocks in the grid, after that we calculated the number of positions each thread would be responsible of calculating. By doing so, we would not be adding the overhead of the scheduling of each thread that would happen if there were more threads than those the GPU could run simultaneously without scheduling them.
-That number would be the determined the following way:
+To avoid scheduling due to the previous explanation, the number of blocks in the grid and the number of threads in each block was defined using cudaOccupancyMaxPotentialBlockSize, after that we calculated work each thread will do. That value was determined the following way:
 \newline\newline
 \centerline{workPerThread =$\frac{graph\_size^2}{blocksInGrid*threadsPerBlock}$}
 \newline\newline
 If the total positions in the matrix is not a multiple of the total number of threads launch then it should be incremented by one the value of workPerThread so that it covers the possible loss of integer division.
 
-%falar da cena do D(i, j)
+In the various implementations that will be shown, the matrix was handled like a graph using D(i,j) for example, this was done using a macro since the matrix used was a one dimensional array but it is easier to handle the matrix in 2D.
 
-\begin{lstlisting}[language=C++, caption=Implementation Basics]
+\begin{lstlisting}[language=C++, caption=Macros used]
 	#define EDGE_COST(graph, GRAPH_SIZE, a, b) graph[a * GRAPH_SIZE + b]
 	#define D(a, b) EDGE_COST(output, GRAPH_SIZE, a, b)
 \end{lstlisting}
