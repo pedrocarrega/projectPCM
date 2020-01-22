@@ -149,33 +149,30 @@ __global__ void calcWithAtomic(int* output, int workPerThread)
 	}
 }
 
-__global__ void calcWithoutAtomic1D(int* output, int k, int workPerThread)
+__global__ void calcWithoutAtomic1D(int* output, int k)
 {
-	int totalID = blockIdx.x * blockDim.x * workPerThread + threadIdx.x * workPerThread;
+	int totalID = blockIdx.x * blockDim.x * WORK_SIZE + threadIdx.x * WORK_SIZE;
 	int i = totalID / GRAPH_SIZE;
 	int j = totalID % GRAPH_SIZE;
 
 	int counter = 0;
-	while (counter < workPerThread)
+	while (counter < WORK_SIZE)
 	{
-		if (i < GRAPH_SIZE && j < GRAPH_SIZE) {
-			if (D(i, k) + D(k, j) < D(i, j)) {
-				D(i, j) = D(i, k) + D(k, j);
-			}
+		if (D(i, k) + D(k, j) < D(i, j)) {
+			D(i, j) = D(i, k) + D(k, j);
 		}
-		if (j + 1 < GRAPH_SIZE) {
+		if (i += ((i + 1) < GRAPH_SIZE)) {
 			j++;
 		}else {
-			i++;
 			j = 0;
 		}
 		counter++;
 	}
 }
 
-__global__ void calcWithAtomic1D(int* output, int workPerThread)
+__global__ void calcWithAtomic1D(int* output)
 {
-	int totalID = blockIdx.x * blockDim.x * workPerThread + threadIdx.x * workPerThread;
+	int totalID = blockIdx.x * blockDim.x * WORK_SIZE + threadIdx.x * WORK_SIZE;
 	int i;
 	int j;
 	int counter;
@@ -186,7 +183,7 @@ __global__ void calcWithAtomic1D(int* output, int workPerThread)
 		i = totalID / GRAPH_SIZE;
 		j = totalID % GRAPH_SIZE;
 		counter = 0;
-		while (counter < workPerThread)
+		while (counter < WORK_SIZE)
 		{
 			if (D(i, k) + D(k, j) < D(i, j)) {
 				D(i, j) = D(i, k) + D(k, j);
@@ -209,9 +206,9 @@ __global__ void calcWithAtomic1D(int* output, int workPerThread)
 	}
 }
 
-__global__ void calcWithAtomic1DShared(int* output, int workPerThread)
+__global__ void calcWithAtomic1DShared(int* output)
 {
-	int totalID = blockIdx.x * blockDim.x * workPerThread + threadIdx.x * workPerThread;
+	int totalID = blockIdx.x * blockDim.x * WORK_SIZE + threadIdx.x * WORK_SIZE;
 	int i;
 	int j;
 	int counter;
@@ -226,7 +223,7 @@ __global__ void calcWithAtomic1DShared(int* output, int workPerThread)
 		Dik = D(i,k);
 		Dkj = D(k,j);
 		counter = 0;
-		while (counter < workPerThread)
+		while (counter < WORK_SIZE)
 		{
 			if (Dik + Dkj < D(i, j)) {
 				D(i, j) = Dik + Dkj;
@@ -445,11 +442,12 @@ void floyd_warshall_gpu(const int* graph, int* output) {
 	
 	int blocks;
 	int threads;
-	cudaOccupancyMaxPotentialBlockSize (&blocks, &threads, calcWithAtomic1DShared, 0, GRAPH_SIZE*GRAPH_SIZE);
+	cudaOccupancyMaxPotentialBlockSize (&blocks, &threads, calcWithoutAtomic1D, 0, GRAPH_SIZE*GRAPH_SIZE);
 	//blocks = sqrt(blocks);
 	//threads = sqrt(threads);
 	int workPerThread = ((GRAPH_SIZE*GRAPH_SIZE) / (threads*blocks));// + 1;
 	printf("workPerThread= %d, blocks= %d threadsPerBlocks = %d\n", workPerThread, blocks, threads);
+
 	
 /*	
 	if(threads % 2 != 0){
@@ -465,17 +463,15 @@ void floyd_warshall_gpu(const int* graph, int* output) {
 
 	
 	
-	
+	/*
 	for (int k = 0; k < GRAPH_SIZE; k++) {
 		//calcSharedWithoutAtomic <<<blocks, threads>>> (dev_a, k);
 		//calcWithoutAtomic <<<dim3(blocks,blocks), dim3(threads,threads)>>> (dev_a, k, WORK_SIZE);
-		//calcWithoutAtomic1D <<<blocks, threads>>> (dev_a, k, WORK_SIZE);
+		calcWithoutAtomic1D <<<BLOCKS, NTHREADS>>> (dev_a, k);
 		//calcOnePosPerThread <<<dim3(GRAPH_SIZE/NTHREADS,GRAPH_SIZE/NTHREADS), dim3(NTHREADS,NTHREADS)>>>(dev_a, k);
 		//calThreadPerColumn <<<b, t >>> (dev_a, t * b, k);
 	}
-	
-	
-	
+	*/
 	
 	
 	
@@ -484,7 +480,7 @@ void floyd_warshall_gpu(const int* graph, int* output) {
 	
 	//calcWithAtomic <<<dim3(blocks,blocks), dim3(threads,threads)>>> (dev_a, workPerThread);
 	//calcWithAtomic1D<<<blocks, threads>>> (dev_a, WORK_SIZE);
-	//calcWithAtomic1DShared<<<blocks, threads>>> (dev_a, WORK_SIZE);
+	calcWithAtomic1DShared<<<blocks, threads>>> (dev_a);
 	//calcSharedWithAtomic <<<blocks, threads >>> (dev_a);
 
 	cudaError_t err = cudaMemcpy(output, dev_a, sizeof(int) * GRAPH_SIZE * GRAPH_SIZE, cudaMemcpyDeviceToHost);
@@ -547,7 +543,7 @@ int main(int argc, char** argv) {
 
 	//QueryPerformanceFrequency(&frequency);
 	//QueryPerformanceCounter(&start);
-	floyd_warshall_cpu(graph, output_cpu);
+	//floyd_warshall_cpu(graph, output_cpu);
 	TIMER_STOP();
 	fprintf(stderr, "%f seconds\n", time_delta);
 
