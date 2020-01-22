@@ -25,7 +25,7 @@ inline void gpuAssert(cudaError_t code, const char* file, int line, bool abort =
 }
 
 #define GRAPH_SIZE 2048
-#define WORK_SIZE 16
+#define WORK_SIZE 256
 #define NTHREADS 32
 #define BLOCKS 16
 
@@ -161,9 +161,10 @@ __global__ void calcWithoutAtomic1D(int* output, int k)
 		if (D(i, k) + D(k, j) < D(i, j)) {
 			D(i, j) = D(i, k) + D(k, j);
 		}
-		if (i += ((i + 1) < GRAPH_SIZE)) {
+		if ((j + 1) < GRAPH_SIZE) {
 			j++;
 		}else {
+			i++;
 			j = 0;
 		}
 		counter++;
@@ -200,7 +201,8 @@ __global__ void calcWithAtomic1D(int* output)
 
 		if (threadIdx.x == 0 && threadIdx.y == 0) {
 			atomicAdd(&barrier,1);
-			while ((atomicCAS(&barrier, numBlocks, numBlocks) % numBlocks) != 0);
+			//while ((atomicCAS(&barrier, numBlocks, numBlocks) % numBlocks) != 0);
+			while((barrier%numBlocks) != 0);
 		}
 		__syncthreads();
 	}
@@ -272,7 +274,7 @@ __global__ void calcWithoutAtomic(int* output, int k, int workPerThread)
 	}
 }
 
-
+/*
 __global__ void calcSharedWithAtomic(int* output)
 {
 	int i = (blockIdx.x * blockDim.x + threadIdx.x) * WORK_SIZE;
@@ -309,7 +311,7 @@ __global__ void calcSharedWithAtomic(int* output)
 		__syncthreads();
 
 	}
-}
+}*/
 
 /*
 __global__ void calcSharedWithoutAtomic(int* output, , int k, int workPerThread)
@@ -440,12 +442,12 @@ void floyd_warshall_gpu(const int* graph, int* output) {
 	
 	int blocks;
 	int threads;
-	//cudaOccupancyMaxPotentialBlockSize (&blocks, &threads, calcSharedWithAtomic, 0, GRAPH_SIZE*GRAPH_SIZE);
+	cudaOccupancyMaxPotentialBlockSize (&blocks, &threads, calcWithAtomic1D, 0, GRAPH_SIZE*GRAPH_SIZE);
 	//blocks = sqrt(blocks);
 	//threads = sqrt(threads);
-	blocks = 4;
-	threads = 32;
-	int workPerThread = ((GRAPH_SIZE) / (threads*blocks));// + 1;
+	//blocks = 4;
+	//threads = 32;
+	int workPerThread = ((GRAPH_SIZE*GRAPH_SIZE) / (threads*blocks));// + 1;
 	printf("workPerThread= %d, blocks= %d threadsPerBlocks = %d\n", workPerThread, blocks, threads);
 
 	
@@ -467,11 +469,10 @@ void floyd_warshall_gpu(const int* graph, int* output) {
 	for (int k = 0; k < GRAPH_SIZE; k++) {
 		//calcSharedWithoutAtomic <<<blocks, threads>>> (dev_a, k);
 		//calcWithoutAtomic <<<dim3(blocks,blocks), dim3(threads,threads)>>> (dev_a, k, WORK_SIZE);
-		calcWithoutAtomic1D <<<BLOCKS, NTHREADS>>> (dev_a, k);
+		calcWithoutAtomic1D <<<blocks, threads>>> (dev_a, k);
 		//calcOnePosPerThread <<<dim3(GRAPH_SIZE/NTHREADS,GRAPH_SIZE/NTHREADS), dim3(NTHREADS,NTHREADS)>>>(dev_a, k);
 		//calThreadPerColumn <<<b, t >>> (dev_a, t * b, k);
-	}
-	*/
+	}*/
 	
 	
 	
@@ -479,7 +480,7 @@ void floyd_warshall_gpu(const int* graph, int* output) {
 	//fprintf(stderr, "blocks: %d\nthreads: %d\n", blocks, threads);
 	
 	//calcWithAtomic <<<dim3(blocks,blocks), dim3(threads,threads)>>> (dev_a, workPerThread);
-	//calcWithAtomic1D<<<blocks, threads>>> (dev_a, WORK_SIZE);
+	calcWithAtomic1D<<<blocks, threads>>> (dev_a);
 	//calcWithAtomic1DShared<<<blocks, threads>>> (dev_a);
 	//calcSharedWithAtomic <<<dim3(blocks,blocks), dim3(threads,threads) >>> (dev_a);
 
