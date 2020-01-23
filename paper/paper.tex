@@ -427,13 +427,13 @@ As we developed this paper, we found two papers that approached CUDA programing 
 
 \section{Conclusions}
 
-After all the results presented before, we can conclude that it is not always recommended to use GPGPU, but when the work load is big enough, then it should be taken into consideration due to the fact that it can reduce significantly the time taken to execute such work.We can verify too that even though the performance can already be good when only converting to the most basic parallel GPU version, it should be taken advantage of the different refinements on the GPU such as the shared memory, registry memory and the synchronization between thread in a block. Each problem will take more or less advantage of each improvement but at the end, by doing them, the results should pay off.
+The goals of this paper is to provide a good teaching paper to those who want to start learning GPGPU, explaining from the basics, for example grid composition and memory allocation to the device, to the improvements that can be made to the use of memory. It is shown the impact of the improvements so that it can be interpreted the differences that those improvements make.
+After all the results presented before, we can conclude that it is not always recommended to use GPGPU, but when the work load is big enough and something that can be paralyzed, then it should be taken into consideration due to the fact that it can reduce significantly the time taken to compute such task. We can verify too that even though the performance can already be good when only converting to the most basic of parallel GPU programing, it should be taken advantage of the different refinements on the GPU such as the shared memory, registry memory and the synchronization between thread in a block. Each problem will take more or less advantage of each improvement but at the end, by doing them, the results should pay off.
 
 \section*{Acknowledgements}
 
-First Author wrote the part of the program implemented the phasers. Second Author implemented the MergeSort in parallel. 
-
-Both authors wrote this paper, with First Author focusing on the introduction, related work and conclusions while the Second Author focused on approach and evaluation.
+Regarding to the implementation of the code both authors worked on it, with the second author focusing more in the implementation details. Both authors authors wrote the paper, where the first author focused more on evaluation, related work, bibliography and in the detailing both the sequential versions, as well as the parallel GPU version. The second author focused more the introduction, abstract, conclusions and in the synchronization and memory improvement versions explanations.
+All the formating of paper was done by the first author.
 
 Each author spent around 40 hours on this project.
 
