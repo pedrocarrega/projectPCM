@@ -18,14 +18,14 @@
 
 
 \author{\IEEEauthorblockN{Pedro Carrega}
-\IEEEauthorblockA{\textit{dept. name of organization (of Aff.)} \\
-\textit{name of organization (of Aff.)}\\
+\IEEEauthorblockA{\textit{Departamento de Informática} \\ %devia ser em ingles?
+\textit{Faculdade de Ciências da Universidade de Lisboa}\\
 Lisboa, Portugal \\
 fc49480@alunos.fc.ul.pt}
 \and
 \IEEEauthorblockN{Vasco Ferreira}
-\IEEEauthorblockA{\textit{dept. name of organization (of Aff.)} \\
-\textit{name of organization (of Aff.)}\\
+\IEEEauthorblockA{\textit{Departamento de Informática} \\ %devia ser em ingles?
+\textit{Faculdade de Ciências da Universidade de Lisboa}\\
 Lisboa, Portugal \\
 fc49470@alunos.fc.ul.pt}
 }
@@ -75,6 +75,8 @@ cudaFree(cudaMemcpyDeviceToHost);
 	\caption{Example of a grid composition and block composition.}
 	\label{fig1}
 \end{figure}
+\begin{comment}
+	
 
 \section{Background}
 
@@ -83,20 +85,22 @@ This is an optional section, as it depends on your project. In projects where a 
 
 
 \section{Approach}
-Since by default when using GPGPU the number of computation are enormous, then one thread per computation is something not recommended so to avoid thread scheduling. Considering that, each thread will need to do a bigger ammout of computations. By doing so, we will not be adding the overhead of scheduling each thread. The scheduling happens if there are more threads than those the GPU can run simultaneously without the need to scheduled them.
 
 
+\end{comment}
 \section{Implementation Details}
 
-As said before, the grid can be 1D, 2D or 3D. Our approach was to use 1D, since if for example we used 2D, we would have to do the square route of the number of blocks per thread and the number of blocks in the grid. By doing so we would possibly be wasting some threads when both numbers are not perfect squares, by doing so then it would not be archived the best occupancy.
+As said before, the grid can be 1D, 2D or 3D. Our approach was to use 1D, since if for example we used 2D, we would have to do the square route of the number of blocks per thread and the number of blocks in the grid. By doing so we would possibly be wasting some threads when both numbers are not perfect squares, by doing so then it would not be archived the best occupancy\cite{occupancy}.
 
-To avoid scheduling due to the previous explanation, the number of blocks in the grid and the number of threads in each block was defined using cudaOccupancyMaxPotentialBlockSize, after that we calculated work each thread will do. That value was determined the following way:
+Considering the average utilization of GPGPUs, the number of computations executed by a single program is enormous. The computation of one value per threads is not a realistic expectation, and such thread scheduling is something the user must consider. Thread scheduling carries a huge overhead to the computation and so it's something to be avoided if possible. With that in mind, we will be making so that each thread computes more than one result per call avoiding the need to rely on the GPU scheduler. 
+
+To avoid scheduling it's required to correctly select the number of blocks and threads in each block. To help the user make said selection, CUDA provides multiple tools so that the user can select the most optimal number of blocks and threads per blocks. One exemple of said tools, and one used during the implementation of some of our solutions is "cudaOccupancyMaxPotentialBlockSize". Given the address of two integers, the amount of shared memory planed on using and the kernel call in question, the values of the integers are updated with the optimal number of blocks and threads per block. After that we calculated the work that each thread will do using the following formula:
 \newline\newline
 \centerline{workPerThread =$\frac{graph\_size^2}{blocksInGrid*threadsPerBlock}$}
 \newline\newline
-If the total positions in the matrix is not a multiple of the total number of threads launch then it should be incremented by one the value of workPerThread so that it covers the possible loss of integer division.
+If the total positions in the matrix are not a multiple of the total number of threads, then the value of workPerThread should be incremented by one so that it covers the possible loss of integer division.
 
-In the various implementations that will be shown, the matrix was handled like a graph using D(i,j) for example, this was done using a macro since the matrix used was a one dimensional array but it is easier to handle the matrix in 2D.
+In the various implementations that will be shown, the matrix was handled like a graph using a macro. The matrix used was a one dimensional array but it is easier to handle the matrix in 2D.
 
 \begin{lstlisting}[language=C++, caption=Macros used]
 	#define EDGE_COST(graph, GRAPH_SIZE, a, b) graph[a * GRAPH_SIZE + b]
@@ -174,7 +178,7 @@ Due to the low core clock speed the strength of the GPU comes from it's high thr
 When running a function parallel on the GPU each thread will run it's own instance of that same function, in other words, the implementation of the function now needs to take into consideration how we partition the work load for each thread. 
 Having decided the number of threads per blocks we want to use, the most common way to split the work load is to use that number to divide the size of our problem, this way obtaining the number of blocks we are going to use to compute our problem. 
 
-With that said, like mentioned before, that method is not ideal for the problem at hand, the GPU scheduler adds a great overhead to our computation and with the increase of the size of the graph our computation will take longer and longer, something we want to avoid. Due to the fact that the number of positions in need of computation is much greater than the number of threads available and as such, we will be using all the threads and blocks available on our GPU. 
+With that said, like mentioned before, that method is not ideal for the problem at hand, the GPU scheduler adds a great overhead to our computation and with the increase of the size of the graph our computation will take longer and longer, something we want to avoid. Due to the fact that the number of positions in need of computation is much greater than the number of threads available and as such, we will be using all the maximum number of threads and blocks supported that can run simultaneously on the GPU. 
 CUDA provides tools to determine said values, the "cudaDeviceProp" being one of them.
 
 Regarding the implementation of our function, we have to change it completely.
@@ -242,7 +246,7 @@ Then we create two \textit{for} cycles that go from those coordinates to that nu
 
 \subsection{Synchronization}
 
-CUDA offers it's users some forms of synchronization, allowing it's users to have a barrier on theirs implementations.
+CUDA offers it's users some forms of synchronization, allowing them to have a barrier on their implementations.
 The most common forms of synchronization is using \_\_syncthreads(), which blocks the thread till all threads within the same block call it, and using Atomic variables. Atomic variables have the benefit of offering GPU wide synchronization but usage of such variables is very slow, making them only useful on certain scenarios. It is also possible to use an array where each position represents one block, where each block will increment its value and only advances when all the positions in the array are true (that is, with the value 1), but to use that the whole block should be synchronized with \_\_syncthreads() as said earlier.
 
 Considering the Floyd-Warshall only has one barrier point, we can use synchronization to reduce the number of kernel calls to just one.
@@ -307,6 +311,7 @@ Considering that, it should always be taken into advantage the usage of both reg
 
 The following implementation follows the logic explained in a previous subsection, but now using registry memory to save D(i,k) that will be used multiple times, this way we avoid multiple reads from the global memory saving some time in each thread execution resulting in a better performance of the GPU kernel.
 
+
 \begin{lstlisting}[language=C++, caption=CUDA implementation with memory improvements]
 __global__ void calcWithAtomic1DMem(int* output, int* syncGrid)
 {
@@ -348,6 +353,8 @@ __global__ void calcWithAtomic1DMem(int* output, int* syncGrid)
 	}
 }
 \end{lstlisting}
+
+This way of synchronizing blocks allows to avoid atomics, the disadvantage is that each block will have to iterate over the array syncGrid until all block are finished in the current K value. At the end this should in theory be similar to an approach using one atomic value where as here, only one thread per block increments atomically that value and when the value equals the number of blocks in the grid, the threads shall proceed, then as in this implementation synchronizing the threads within the block using \_\_syncthreads().It is important to note that even though the synchronization can be made, it can be very difficult to implement it at a grid level since it is very prone to deadlocks, due to the fact that if the number of blocks in the grid is bigger then the GPU can run simultaneously, then the GPU will need to scheduled them and by doing so, it will cause deadlock.
 
 In this implementation as we said, the logic is the same as the previous versions, but now taking some advantage of the fact that as it can be seen, the D(i,k) position of the matrix is repeatably read in global memory but rarely changes so we can copy it to the registry memory to reduce the overhead of reading global memory. We have to be sure that the registry memory is updated every time the i index changes so as the k value. This small change can improve significantly the performance of the kernel, even more as we increase the graph size. Depending of the problem we can take even more advantage of memory usage, this approach is only to show how the usage of shared and registry memory can have a significant improvement in performance of GPGPU.
 
@@ -394,7 +401,7 @@ To show the results and effectiveness of our solutions we ran two sets of tests:
 
 \subsection{Discussion}
 
-
+With the results demonstrated, we can see the little improvements that can be made in GPGPU and how much impact they can make in performance of the kernel. It should be possible to understand why each of the improvements is needed and should be taken in consideration when using the GPU.The most significant change in all the parallel implementations would be the use of synchronization to avoid the recurrent call of the kernel to synchronize, in the Floyd Warshall in specific this recurrent call of kernels can add a big overhead since it relies massively on synchronization. That is why when using only one call due to the synchronization, the time taken decreased around 43\% which is the biggest improvement made. Then we could even improve this version by reducing the number of reads from global memory, this improvement alone decreased the time taken by around 16.5\%. This proves that each improvement in GPGPU can make a big difference, even more when working with bigger work sizes.
 
 \begin{comment}
 Here you should discuss the results on a high level. For instance, based on our results, the parallelization of the merge-sort is relevant as no other parallel work occurs at the same time, and the complexity $O(N log(N))$ can have a large impact when the number of individuals is high.
@@ -402,14 +409,11 @@ Here you should discuss the results on a high level. For instance, based on our 
 
 \section{Related Work}
 
-This section can be either the second one, or the second-to-last. In the case where knowledge of other competing works is required, it could come before. But if you are confident on what you did, it should appear at the end, where you can compare existing works against yours. An example is below:
+As we developed this paper, we found two papers that approached CUDA programing, but in (MAIS SIMPLES) the subject was very incomplete, not showing in a concise way the improvements achievable in GPGPU. In (Mais completo) we found that it was well developed but could be a bit much for someone who is waiting to start in GPGPU.
 
 \section{Conclusions}
 
-Here you should resume the major conclusions taken from discussion. Ideally, these should align with the objectives introduced in the introduction.
-
-
-You should also list the future work, i. e., tasks and challenges that were outside your scope, but are relevant.
+After all the results presented before, we can conclude that it is not always recommended to use GPGPU, but when the work load is big enough, then it should be taken into consideration due to the fact that it can reduce significantly the time taken to execute such work.We can verify too that even though the performance can already be good when only converting to the most basic parallel GPU version, it should be taken advantage of the different refinements on the GPU such as the shared memory, registry memory and the synchronization between thread in a block. Each problem will take more or less advantage of each improvement but at the end, by doing them, the results should pay off.
 
 \section*{Acknowledgements}
 
@@ -417,7 +421,7 @@ First Author wrote the part of the program implemented the phasers. Second Autho
 
 Both authors wrote this paper, with First Author focusing on the introduction, related work and conclusions while the Second Author focused on approach and evaluation.
 
-Each author spent around 30 hours on this project.
+Each author spent around 40 hours on this project.
 
 \bibliography{splncs04}
 
@@ -427,6 +431,8 @@ Each author spent around 30 hours on this project.
 	/analysis/report/cudaexperiments/kernellevel/achievedoccupancy.htm
 	\bibitem{programing guide} CUDA C++ Programing Guide. (2019, November 28). Retrieved December 20, 2019, from https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html
 	\bibitem{best practices} CUDA C++ Best Practices Guide. (2019, November 28). Retrieved January 2, 2020, from https://docs.nvidia.com/cuda/cuda-c-best-practices-guide/index.html
+	\bibitem{study on FDTD} Donno, D., \& Esposito, A., \& Tarricone, L., \& Catarinucci, L. (June 2010). Introduction to GPU Computing and CUDA Programming: A Case Study on FDTD. IEEE Antennas and Propagation Magazine, 52.  
+	\bibitem{floyd warshall} Kulkarni, K., \& Sharma, N., \& Shinde, P., \& Varma, V. (January 2015). Parallelization of Shortest Path Finder on GPU:Floyd-Warshall. International Journal of Computer Applications, 110. 
 \end{thebibliography}
 
 \end{document}
