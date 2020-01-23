@@ -300,6 +300,9 @@ __global__ void calcWithAtomic1D(int* output, int* syncGrid)
 }
 \end{lstlisting}
 
+This way of synchronizing blocks allows to avoid atomics, the disadvantage is that each block will have to iterate over the array syncGrid until all block are finished in the current K value. At the end this should in theory be similar to an approach using one atomic value where as here, only one thread per block increments atomically that value and when the value equals the number of blocks in the grid, the threads shall proceed, then as in this implementation synchronizing the threads within the block using \_\_syncthreads().It is important to note that even though the synchronization can be made, it can be very difficult to implement it at a grid level since it is very prone to deadlocks, due to the fact that if the number of blocks in the grid is bigger then the GPU can run simultaneously, then the GPU will need to scheduled them and by doing so, it will cause deadlock.
+
+
 \subsection{Memory improvements}
 Shared memory is a type of memory located on-chip, meaning it is much faster then global memory. In fact shared memory latency is roughly 
 100x lower than uncached global memory latency\cite{memory} (provided that there are no bank conflicts between the threads). It is allocated per 
@@ -354,21 +357,32 @@ __global__ void calcWithAtomic1DMem(int* output, int* syncGrid)
 }
 \end{lstlisting}
 
-This way of synchronizing blocks allows to avoid atomics, the disadvantage is that each block will have to iterate over the array syncGrid until all block are finished in the current K value. At the end this should in theory be similar to an approach using one atomic value where as here, only one thread per block increments atomically that value and when the value equals the number of blocks in the grid, the threads shall proceed, then as in this implementation synchronizing the threads within the block using \_\_syncthreads().It is important to note that even though the synchronization can be made, it can be very difficult to implement it at a grid level since it is very prone to deadlocks, due to the fact that if the number of blocks in the grid is bigger then the GPU can run simultaneously, then the GPU will need to scheduled them and by doing so, it will cause deadlock.
-
 In this implementation as we said, the logic is the same as the previous versions, but now taking some advantage of the fact that as it can be seen, the D(i,k) position of the matrix is repeatably read in global memory but rarely changes so we can copy it to the registry memory to reduce the overhead of reading global memory. We have to be sure that the registry memory is updated every time the i index changes so as the k value. This small change can improve significantly the performance of the kernel, even more as we increase the graph size. Depending of the problem we can take even more advantage of memory usage, this approach is only to show how the usage of shared and registry memory can have a significant improvement in performance of GPGPU.
 
 \section{Evaluation}
 
 \subsection{Experimental Setup}
 
-We ran our tests on a machine equipped with a Nvidia GeForce GTX 960 2GB with a base clock of 1127 MHz and an Intel Xeon X5670 with a base clock speed of 2.93GHz.
+\begin{table}[htbp]
+	\caption{Details of the hardware used in the experiments}
+	\begin{center}
+		\begin{tabular}{|c|c|c|}
+		\hline
+			\textbf{\textit{Hardware Type}} & \textbf{\textit{Name}} & \textbf{\textit{Base Clock Speed}}\\ \hline
+			\textbf{\textit{CPU}} & \textbf{\textit{Intel Xeon X5670}} & \textbf{\textit{2.93GHz}} \\ \hline
+			\textbf{\textit{GPU}} & \textbf{\textit{Nvidia GeForce GTX 960 2GB}} & \textbf{\textit{1127MHz}} \\ \hline
+	\end{tabular}
+	\label{tab1}
+	\end{center}
+\end{table}
+
+The machine used on this tests was running Ubuntu 18.04.3 LTS. All programs ran in the same conditions where there was no load other than the experiment and the operating system.
 
 \subsection{Results}
 
-To show the results and effectiveness of our solutions we ran two sets of tests:
+To show the results and effectiveness of our solutions we ran one set of tests:
 \begin{itemize}
-	\item We ran both sequential versions with the graph size at 1000, in order to show the weakness of the GPU in single threaded tasks.
+	%\item We ran both sequential versions with the graph size at 1000, in order to show the weakness of the GPU in single threaded tasks.
 	\item We ran all our implementations with a graph size of 2048, minus the sequential GPU, in order to show the impact of our improvements made on the computation of our problem.
 \end{itemize}
 
@@ -389,7 +403,7 @@ To show the results and effectiveness of our solutions we ran two sets of tests:
 			\textbf{\textit{40,221}} & \textbf{\textit{5,649}} & \textbf{\textit{3,207}} & \textbf{\textit{2,551}} \\ \hline
 			\textbf{\textit{40,224}} & \textbf{\textit{5,617}} & \textbf{\textit{3,159}} & \textbf{\textit{2,731}} \\ \hline
 	\end{tabular}
-	\label{tab1}
+	\label{tab2}
 	\end{center}
 \end{table}
 
@@ -409,7 +423,7 @@ Here you should discuss the results on a high level. For instance, based on our 
 
 \section{Related Work}
 
-As we developed this paper, we found two papers that approached CUDA programing, but in (MAIS SIMPLES) the subject was very incomplete, not showing in a concise way the improvements achievable in GPGPU. In (Mais completo) we found that it was well developed but could be a bit much for someone who is waiting to start in GPGPU.
+As we developed this paper, we found two papers that approached CUDA programing but both differed on the scope of the topic. \cite{floyd warshall}Analyzes the Floyd Warshall algorithm in detail but it does not provide a good introduction to GPGPU. \cite{study on FDTD}Provided a more in depth approach to CUDA, showing as well how it could be use to tackle FDTD, but again it lacks as a teaching tool toward people that aim to learn the basics of CUDA and GPGPU programing.
 
 \section{Conclusions}
 
