@@ -1,11 +1,17 @@
 Slide 2:
 The motivation to doing this paper was the lack of a concice introduction on GPGPU as well as the absence of a brief demonstration on the advantages of GPGPU when it comes to its processing power. 
-Our goal was to provide a resourceful but not too complex introduction to GPGPU, using the Floyd & Warshall algorithm as an example. It was used CUDA to demonstrate the different improvements in it, but it could be applied to other languages such as OpenCL.
+Our goal was to provide a resourceful but not too complex introduction to GPGPU, using the Floyd Warshall algorithm as an example. It was used CUDA to demonstrate the different improvements in it, but it could be applied to other languages such as OpenCL.
 The paper would be mainly recommended to someone that is planning on starting in GPGPU and is looking for a simple implementation as well as the improvements that can be made in it to increase even more the performance of GPGPU. The paper would also be recommended to teachers that would be interested in using our paper as a guide line to teach GPGPU for begginers.
 
 Slide 3:
 Regarding our approach, we applied an incremental approach where we started by explaining the CPU sequencial version of the algorithm so if the reader is not familiared with it then we provide a simple explanation. Next we followed by implementing the first version in GPGPU with a sequencial version so we could show the implementation of the kernel that would be equivalent to the CPU version. (SE CONSEGUIRMOS ADICIONAR COMPARATIVOS DA SEQUENCIAL GPU ENT FALAR QUE QUERIAMOS MOSTRAR COMO A THREAD DA GPU É MAIS LENTA) After this implementation we proceded with the implementation of a parallel version on the GPU where we could use all the processing power available by the GPU while keeping the implementation simple so the reader can understand the differences. Then it was applied an implementation with synchronization within all the threads explaning the reason it could be recomended in GPGPU and in this algorithm in specific. To wrap up the improvements demonstrated we ended by decreasing the access to the device global memory and why that would impact the kernel.
 By doing this incremental approach we want to simplify the progression made so the reader can understand the differences easily.
+
+Slide 4:
+The biggest challenge we faced was choosing how to demonstrate the different tools GPGPU offer. While picking the tools we wanted to show the reader was simple enough, deciding how to demonstrate them was a whole different story (mb usar outra expressao?). We faced the following dilemma: "Should we show the tool to it's maximum potential in the given problem?" or "Should we show the most simple implementation of the tool in question?". In the end we decided to look back at the goal of this paper, given a base solution of our problem how to insert the tool in question to the current implementation. The reader would be aware of the differences between solutions and therefore made aware of how to use the tool in question. While this would not give the best improvements to the execution time, it showed the reader, in a simple way, how to use the tool and that using it would improve the solution. All in a effort that in the end of this paper the reader, when trying to implement a GPGPU program, be able in an independent matter to choose what tools to use and in what situations they should be used
+
+Slide 5:
+
 
 Slide 6:
 In conclusion we provide a good introduction to GPGPU using a algorithm that heavely benefits from it, due to its complexity. The objective was meet where we did not want to be too basic in the explanations but also didn't want for the reader to be confused with the different options and improvements made.
