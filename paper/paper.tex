@@ -91,7 +91,7 @@ As said before, the grid can be 1D, 2D or 3D. Our approach was to use 1D, since 
 
 Considering the average utilization of GPGPUs, the number of computations executed by a single program is enormous. The computation of one value per threads is not a realistic expectation, and such thread scheduling is something the user must consider. Thread scheduling carries a huge overhead to the computation and so it's something to be avoided if possible. With that in mind, we will be making so that each thread computes more than one result per call avoiding the need to rely on the GPU scheduler. 
 
-To avoid scheduling it's required to correctly select the number of blocks and threads in each block. To help the user make said selection, CUDA provides multiple tools so that the user can select the most optimal number of blocks and threads per blocks. One exemple of said tools, and one used during the implementation of some of our solutions is "cudaOccupancyMaxPotentialBlockSize". Given the address of two integers, the amount of shared memory planed on using and the kernel call in question, the values of the integers are updated with the optimal number of blocks and threads per block. After that we calculated the work that each thread will do using the following formula:
+To avoid scheduling it's required to correctly select the number of blocks and threads in each block. To help the user make said selection, CUDA provides multiple tools so that the user can select the most optimal number of blocks and threads per blocks. One example of said tools, and one used during the implementation of some of our solutions is "cudaOccupancyMaxPotentialBlockSize". Given the address of two integers, the amount of shared memory planed on using and the kernel call in question, the values of the integers are updated with the optimal number of blocks and threads per block. After that we calculated the work that each thread will do using the following formula:
 \newline\newline
 \centerline{workPerThread =$\frac{graph\_size^2}{blocksInGrid*threadsPerBlock}$}
 \newline\newline
@@ -149,7 +149,7 @@ We create 3 nested cycles to iterate through our graph and compute our problem.
 
 Our implementation will be the following:
 \begin{lstlisting}[language=C++, caption=Sequential CUDA]
-	__global__ void calculateSequencialGPU(int* output) {
+	__global__ void calculateSequentialGPU(int* output) {
 	
 	for (int k = 0; k < GRAPH_SIZE; k++)
 		for (int i = 0; i < GRAPH_SIZE; i++)
@@ -403,12 +403,12 @@ To show the results and effectiveness of our solutions we ran one set of tests:
 \newpage
 \begin{figure}[htbp]
 	\centerline{\includegraphics[width=\linewidth]{figures/graph_cpuVSgpupar.png}}
-	\caption{Execution time of CPU sequencial vs GPU Parallel.}
+	\caption{Execution time of CPU Sequential vs GPU Parallel.}
 	\label{fig1}
 \end{figure}
 \begin{figure}[htbp]
 	\centerline{\includegraphics[width=\linewidth]{figures/graph_gpus.png}}
-	\caption{Execution time of our gpu implementations.}
+	\caption{Execution time of our GPU implementations.}
 	\label{fig1}
 \end{figure}
 
