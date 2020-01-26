@@ -15,7 +15,7 @@
     T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
 \begin{document}
 
-\title{A Study in CUDA Usage}
+\title{Optimizations in GPGPU using Floyd-Warshall}
 
 
 \author{\IEEEauthorblockN{Pedro Carrega}
@@ -34,7 +34,7 @@ fc49470@alunos.fc.ul.pt}
 \maketitle
 
 \begin{abstract}
-This paper was developed with the purpose to explain GPU (Graphical Processing Unit) programing and the improvements that can be made. To demonstrate this we used the Floyd-Warshall algorithm since it is very demanding for the CPU (Central Processing Unit) due to the high number of computations required. During our research we discovered that the available materials for learning GPGPU (General Purpose Graphics Processing Unit) are quite difficult to understand for those who are looking to learn the basics of GPU programing. For that we developed this paper explaining from scratch GPGPU and some of the most significant improvements that can be made. We will start with a simple sequential solution of the algorithm in CUDA and from there go step by step till we use most of the tools and processing power that a GPU has to offer. This paper is helpful for someone who intends to learn the basics of GPGPU or could be used as a teaching guide in an IT course to introduce GPGPU to students.
+This paper was developed with the purpose to explain GPU (Graphical Processing Unit) programing and the improvements that can be made. To demonstrate this we used the Floyd-Warshall algorithm since it is highly demanding for the CPU (Central Processing Unit) due to the high number of computations required. During our research we discovered that the available materials for learning GPGPU (General Purpose Graphics Processing Unit) are quite difficult to understand for those who are looking to learn the basics of GPU programing. For that we developed this paper explaining from scratch GPGPU and some of the most significant improvements that can be made. We will start with a simple sequential solution of the algorithm in CUDA and from there go step by step till we use most of the tools and processing power that a GPU has to offer. This paper is helpful for someone who intends to learn the basics of GPGPU or could be used as a teaching guide in an IT course to introduce GPGPU to students.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -42,7 +42,7 @@ GPGPU, CUDA, Floyd-Warshall.
 \end{IEEEkeywords}
 
 \section{Introduction}
-The purpose of this paper is to teach GPU (Graphics Processing Unit) programing and the different improvements that can be made, showing the different improvements in each version so that the solution can perform even better taking advantage of the GPU optimizations. To demonstrate this, we used a well known problem that is the Floyd-Warshall algorithm. The algorithm calculates all the possible paths between two points and saves the shortest path. It was chosen because it requires a enormous amount of computation to get the final result since it is has O$(n^{3})$ complexity. With a high amount of entries, that is, a big matrix and so it can be very demanding for the CPU (Central Processing Unit). This is where the GPU benefits due to its high number of threads.
+The purpose of this paper is to teach GPU (Graphics Processing Unit) programing and the different improvements that can be made, showing the different improvements in each version so that the solution can perform even better taking advantage of the GPU optimizations. To demonstrate this, we used a well known problem that is the Floyd-Warshall algorithm. The algorithm calculates all the possible paths between two points and saves the shortest path. It was chosen because it requires a enormous amount of computations to get the final result since it is has O$(n^{3})$ complexity. With a high amount of entries, that is, a big matrix and so it can be very demanding for the CPU (Central Processing Unit). This is where the GPU benefits due to its high number of threads.
 \newline
 For this paper all the examples will be in CUDA. %outras linguagens tem estas coisas?
 
@@ -52,7 +52,7 @@ When launching a kernel it has to be declared the number of threads per block an
 
 The composition of the kernel grid has a huge impact on performance, with that in mind a programmer of GPGPU (General Purpose Graphics Processing Unit), in most scenarios, should aim to use the largest amount of threads per block possible.
 
-It also needs to be considered that the GPU does not have access to the memory used by the CPU, so all pointers used as input for the GPU kernel will have to be allocated and copied to the GPU global memory before being able to access it. The pointers of the memory that were allocated need to be passed through the parameters of the kernel call so that they can be used by the GPU. In case of a primitive type, it can be passed only by the parameters of the kernel (i.e. int) and does not need to allocate memory on the GPU memory manually. After all the computations are finished, the result should be accessible by the CPU so that it can copy back the result to the CPU and do what it needs with it. To do that it needs to copy the result similarly to the opposite operation but this time from the device to the host. Then the memory that was allocated in the GPU memory should be freed so there are no memory leaks just like in the CPU. In the next figure you can see an example of a input being copied to the GPU, the call of the kernel, the corresponding composition of the grid which will be represented in the (Fig.1) and then the result being copied back to the CPU memory:
+It also needs to be considered that the GPU does not have access to the memory used by the CPU, so all pointers used as input for the GPU kernel will have to be allocated and copied to the GPU global memory before being able to access it. The pointers of the memory that were allocated need to be passed through the parameters of the kernel call so that they can be used by the GPU. In case of a primitive type, it can be passed only by the parameters of the kernel (i.e. int) and does not need to allocate memory on the GPU memory manually. After all the computations are finished, the result should be accessible by the CPU so that it can copy back the result. To do that it needs to copy the result similarly to the opposite operation but this time from the device to the host. Then the memory that was allocated in the GPU memory should be freed so there are no memory leaks just like in the CPU. In the next figure you can see an example of a input being copied to the GPU, the call of the kernel, the corresponding composition of the grid which will be represented in the (Fig.1) and then the result being copied back to the CPU memory:
 \begin{lstlisting}[language=C++, caption=CUDA Example]
 int* matrix_pointer_device;
 
@@ -60,19 +60,15 @@ cudaMalloc(&matrix_pointer_device, sizeof(int) * graph_sizeX * graph_sizeY);
 
 cudaMemCpy(matrix_pointer_device, graph, sizeof(int) * graph_sizeX * graph_sizeY, cudaMemcpyHostToDevice);
 
-dim3 threads(3,2);
-dim3 blocks(4,2); 
+dim3 threads(3,2); dim3 blocks(4,2); 
 
-computes<<<blocks, threads>>>(graph_sizeX, graph_sizeY, matrix_pointer_device);
-
+computes<<<blocks, threads>>>(graph_sizeX,graph_sizeY, matrix_pointer_device);
 cudaMemCpy(graph, matrix_pointer_device, sizeof(int) * graph_sizeX * graph_sizeY, cudaMemcpyDeviceToHost);
 
 cudaFree(cudaMemcpyDeviceToHost);
-
 \end{lstlisting}
-
 \begin{figure}[htbp]
-	\centerline{\includegraphics[width=\linewidth]{figures/gridExampleTransparant.png}}
+	\centerline{\includegraphics[width=\linewidth]{figures/gridExampleTransparantCropped.png}}
 	\caption{Example of a grid composition and block composition.}
 	\label{fig1}
 \end{figure}
@@ -91,7 +87,7 @@ This is an optional section, as it depends on your project. In projects where a 
 \end{comment}
 \section{Implementation Details}
 
-As said before, the grid can be 1D, 2D or 3D. Our approach was to use 1D, since if for example we used 2D, we would have to do the square route of the number of blocks per thread and the number of blocks in the grid. By doing so we would possibly be wasting some threads when both numbers are not perfect squares, by doing so then it would not be archived the best occupancy\cite{occupancy}.
+As said before, the grid can be 1D, 2D or 3D. Our approach was to use 1D, since if for example we used 2D, we would have to do the square route of the number of blocks per thread and the number of blocks in the grid. By doing so we would possibly be wasting some threads when both numbers are not perfect squares due to integer division, by doing so then it would not be archived the best occupancy\cite{occupancy}.
 
 Considering the average utilization of GPGPUs, the number of computations executed by a single program is enormous. The computation of one value per threads is not a realistic expectation, and such thread scheduling is something the user must consider. Thread scheduling carries a huge overhead to the computation and so it's something to be avoided if possible. With that in mind, we will be making so that each thread computes more than one result per call avoiding the need to rely on the GPU scheduler. 
 
@@ -126,15 +122,11 @@ Below it is possible to see our implementation:
 \begin{lstlisting}[language=C++, caption=Sequential CPU]
 void floyd_warshall_cpu(const int* graph, int* output) {
 	
-	for (int k = 0; k < GRAPH_SIZE; k++) {
-		for (int i = 0; i < GRAPH_SIZE; i++) {
-			for (int j = 0; j < GRAPH_SIZE; j++) {
-				if (D(i, k) + D(k, j) < D(i, j)) {
+	for (int k = 0; k < GRAPH_SIZE; k++)
+		for (int i = 0; i < GRAPH_SIZE; i++)
+			for (int j = 0; j < GRAPH_SIZE; j++)
+				if (D(i, k) + D(k, j) < D(i, j))
 					D(i, j) = D(i, k) + D(k, j);
-				}
-			}
-		}
-	}
 }
 \end{lstlisting}
 
@@ -157,17 +149,13 @@ We create 3 nested cycles to iterate through our graph and compute our problem.
 
 Our implementation will be the following:
 \begin{lstlisting}[language=C++, caption=Sequential CUDA]
-	__global__ void calculateSequencialGPU(int* output)
-{
-	for (int k = 0; k < GRAPH_SIZE; k++) {
-		for (int i = 0; i < GRAPH_SIZE; i++) {
-			for (int j = 0; j < GRAPH_SIZE; j++) {
-				if (D(i, k) + D(k, j) < D(i, j)) {
+	__global__ void calculateSequencialGPU(int* output) {
+	
+	for (int k = 0; k < GRAPH_SIZE; k++)
+		for (int i = 0; i < GRAPH_SIZE; i++)
+			for (int j = 0; j < GRAPH_SIZE; j++)
+				if (D(i, k) + D(k, j) < D(i, j))
 					D(i, j) = D(i, k) + D(k, j);
-				}
-			}
-		}
-	}
 }
 \end{lstlisting}
 
@@ -180,7 +168,7 @@ When running a function parallel on the GPU each thread will run it's own instan
 Having decided the number of threads per blocks we want to use, the most common way to split the work load is to use that number to divide the size of our problem, this way obtaining the number of blocks we are going to use to compute our problem. 
 
 With that said, like mentioned before, that method is not ideal for the problem at hand, the GPU scheduler adds a great overhead to our computation and with the increase of the size of the graph our computation will take longer and longer, something we want to avoid. Due to the fact that the number of positions in need of computation is much greater than the number of threads available and as such, we will be using all the maximum number of threads and blocks supported that can run simultaneously on the GPU. 
-CUDA provides tools to determine said values, the "cudaDeviceProp" being one of them.
+%CUDA provides tools to determine said values, the "cudaDeviceProp" being one of them.
 
 Regarding the implementation of our function, we have to change it completely.
 The kernel is now called K times by the CPU, where K goes from 0 to "GRAPH\_SIZE", 
@@ -188,18 +176,19 @@ each thread will now be attributed a "WORK\_SIZE" being the number of positions 
 We determine where the thread is located in the graph, having in consideration the work other threads will compute. Then we determine the initial values of I and J, where I represents a line of our graph and J a column. Initializing a counter so we know when we computed all the positions attributed to the threads, we analyze the shortest path between I to J, using the value of K provided by the CPU when the kernel is called, updating the value if needed. After analyzing one position we increment the value of J, if J goes outside the scope of the problem we equal J to 0 and increment the value of I.
 
 \begin{lstlisting}[language=C++, caption=Parallel GPU]
-__global__ void calcWithoutAtomic1D(int* output, int k)
-{
+__global__ void calcWithoutAtomic1D(int* output, int k) {
+
 	int totalID = blockIdx.x * blockDim.x * WORK_SIZE + threadIdx.x * WORK_SIZE;
 	int i = totalID / GRAPH_SIZE;
 	int j = totalID % GRAPH_SIZE;
 
 	int counter = 0;
-	while (counter < WORK_SIZE)
-	{
-		if (D(i, k) + D(k, j) < D(i, j)) {
+	
+	while (counter < WORK_SIZE)	{
+	
+		if (D(i, k) + D(k, j) < D(i, j))
 			D(i, j) = D(i, k) + D(k, j);
-		}
+			
 		if ((j + 1) < GRAPH_SIZE) {
 			j++;
 		}else {
@@ -254,28 +243,30 @@ Considering the Floyd-Warshall only has one barrier point, we can use synchroniz
 We will be using the same implementation used on the previous iteration of our solution, but slightly modifying it so it uses synchronization.
 Like mentioned before atomic operations carry an heavy performance cost, so that was not the approach used, the next paragraphs will explained the solution used.
 
-We'll start by allocating memory using cudaMalloc on the host side, for an array of integers where each position will be used only by one thread per block, that is, each block will have its own index in the array. By doing that we avoid the overhead of doing atomic operations because since each block will have its own position in the array and only one thread per block will change its value, there are no conflicts in tha manipulation of the value. The array pointer should be passed through the parameters of the kernel call and freed at the end.
+We'll start by allocating memory using cudaMalloc on the host side, for an array of integers where each position will be used only by one thread per block, that is, each block will have its own index in the array. By doing that we avoid the overhead of doing atomic operations because since each block will have its own position in the array and only one thread per block will change its value, there are no conflicts in the manipulation of the value. The array pointer should be passed through the parameters of the kernel call and freed at the end.
 
-Since now we will only be calling the kernel once every thread must now store it's own variable K, which will be iterated by 1 every computing cycle.  At the end of the computing cycle the first thread per block (threadIdx.x == 0) will change its value in the syncArray to 1 and then checking if all the values in that array are set to 1, if so then it shall proceed. It is important to check that before starting each iteration of K, the corresponding syncArray value will be changed now to 0.
+Since now we will only be calling the kernel once every thread must now store it's own variable K, which will be iterated synchronously within all threads.  At the end of each iteration the first thread per block (threadIdx.x == 0) will change its value in the syncArray to 1 and then checking if all the values in that array are set to 1, if so then it shall proceed. It is important to check that before starting each iteration of K, the corresponding syncArray value will be changed now to 0.
 We will be using \_\_syncthreads() so that the other threads await for the threads in each block which are responsible for the block synchronization.
 
 
 \begin{lstlisting}[language=C++, caption=CUDA implementation with synchronization]
-__global__ void calcWithAtomic1D(int* output, int* syncGrid)
-{
+__global__ void calcWithAtomic1D(int* output, int* syncGrid) {
+
 	int totalID = blockIdx.x * blockDim.x * WORK_SIZE + threadIdx.x * WORK_SIZE;
 	int i, j, counter, barrier, k = 0;
 
-	while(k < GRAPH_SIZE){
+	while(k < GRAPH_SIZE) {
+	
 		i = totalID / GRAPH_SIZE;
 		j = totalID % GRAPH_SIZE;
 		counter = 0;
 		syncGrid[blockIdx.x] = 0;
-		while (counter < WORK_SIZE)
-		{
-			if (D(i,k) + D(k, j) < D(i, j)) {
+		
+		while (counter < WORK_SIZE) {
+		
+			if (D(i,k) + D(k, j) < D(i, j))
 				D(i, j) = D(i,k) + D(k, j);
-			}
+			
 			if (j + 1 < GRAPH_SIZE) {
 				j++;
 			}else {
@@ -301,7 +292,7 @@ __global__ void calcWithAtomic1D(int* output, int* syncGrid)
 }
 \end{lstlisting}
 
-This way of synchronizing blocks allows to avoid atomics, the disadvantage is that each block will have to iterate over the array syncGrid until all block are finished in the current K value. At the end this should in theory be similar to an approach using one atomic value where as here, only one thread per block increments atomically that value and when the value equals the number of blocks in the grid, the threads shall proceed, then as in this implementation synchronizing the threads within the block using \_\_syncthreads().It is important to note that even though the synchronization can be made, it can be very difficult to implement it at a grid level since it is very prone to deadlocks, due to the fact that if the number of blocks in the grid is bigger then the GPU can run simultaneously, then the GPU will need to scheduled them and by doing so, it will cause deadlock.
+This way of synchronizing blocks allows to avoid atomics, the disadvantage is that each block will have to iterate over the array syncGrid until all block are finished in the current K value. At the end this should in theory be similar to an approach using one atomic value where as here, only one thread per block increments atomically that value and when the value equals the number of blocks in the grid, the threads shall proceed, then as in this implementation synchronizing the threads within the block using \_\_syncthreads(). It is important to note that even though the synchronization can be made, it can be very difficult to implement it at a grid level since it is very prone to deadlocks, due to the fact that if the number of blocks in the grid is bigger then the GPU can run simultaneously, then the GPU will need to scheduled them and by doing so, it will cause deadlock.
 
 
 \subsection{Memory improvements}
@@ -317,8 +308,8 @@ The following implementation follows the logic explained in a previous subsectio
 
 
 \begin{lstlisting}[language=C++, caption=CUDA implementation with memory improvements]
-__global__ void calcWithAtomic1DMem(int* output, int* syncGrid)
-{
+__global__ void calcWithAtomic1DMem(int* output, int* syncGrid) {
+
 	int totalID = blockIdx.x * blockDim.x * WORK_SIZE + threadIdx.x * WORK_SIZE;
 	int i, j , counter, k = 0, verifier, D_ik;
 
@@ -328,11 +319,11 @@ __global__ void calcWithAtomic1DMem(int* output, int* syncGrid)
 		counter = 0;
 		D_ik = D(i,k);
 		syncGrid[blockIdx.x] = 0;
-		while (counter < WORK_SIZE)
-		{
-			if (D_ik + D(k, j) < D(i, j)) {
+		
+		while (counter < WORK_SIZE)	{
+			if (D_ik + D(k, j) < D(i, j))
 				D(i, j) = D_ik + D(k, j);
-			}
+				
 			if (j + 1 < GRAPH_SIZE) {
 				j++;
 			}else {
