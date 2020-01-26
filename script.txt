@@ -1,10 +1,10 @@
 Slide 2:
-The motivation to doing this paper was the lack of a concice introduction on GPGPU as well as the absence of a brief demonstration on the advantages of GPGPU when it comes to its processing power. 
+The motivation to doing this paper was the lack of a concise introduction on GPGPU as well as the absence of a brief demonstration on the advantages of GPGPU when it comes to its processing power. 
 Our goal was to provide a resourceful but not too complex introduction to GPGPU, using the Floyd Warshall algorithm as an example. It was used CUDA to demonstrate the different improvements in it, but it could be applied to other languages such as OpenCL.
-The paper would be mainly recommended to someone that is planning on starting in GPGPU and is looking for a simple implementation as well as the improvements that can be made in it to increase even more the performance of GPGPU. The paper would also be recommended to teachers that would be interested in using our paper as a guide line to teach GPGPU for begginers.
+The paper would be mainly recommended to someone that is planning on starting in GPGPU and is looking for a simple implementation as well as the improvements that can be made in it to increase even more the performance of GPGPU. The paper would also be recommended to teachers that would be interested in using our paper as a guide line to teach GPGPU for beginners.
 
 Slide 3:
-Regarding our approach, we applied an incremental approach where we started by explaining the CPU sequencial version of the algorithm so if the reader is not familiared with it then we provide a simple explanation. Next we followed by implementing the first version in GPGPU with a sequencial version so we could show the implementation of the kernel that would be equivalent to the CPU version. (SE CONSEGUIRMOS ADICIONAR COMPARATIVOS DA SEQUENCIAL GPU ENT FALAR QUE QUERIAMOS MOSTRAR COMO A THREAD DA GPU É MAIS LENTA) After this implementation we proceded with the implementation of a parallel version on the GPU where we could use all the processing power available by the GPU while keeping the implementation simple so the reader can understand the differences. Then it was applied an implementation with synchronization within all the threads explaning the reason it could be recomended in GPGPU and in this algorithm in specific. To wrap up the improvements demonstrated we ended by decreasing the access to the device global memory and why that would impact the kernel.
+Regarding our approach, we applied an incremental approach where we started by explaining the CPU sequential version of the algorithm so if the reader is not familiarized with it then we provide a simple explanation. Next we followed by implementing the first version in GPGPU with a sequential version so we could show the implementation of the kernel that would be equivalent to the CPU version. (SE CONSEGUIRMOS ADICIONAR COMPARATIVOS DA SEQUENTIAL GPU ENT FALAR QUE QUERIAMOS MOSTRAR COMO A THREAD DA GPU É MAIS LENTA) After this implementation we proceeded with the implementation of a parallel version on the GPU where we could use all the processing power available by the GPU while keeping the implementation simple so the reader can understand the differences. Then it was applied an implementation with synchronization within all the threads explaining the reason it could be recommended in GPGPU and in this algorithm in specific. To wrap up the improvements demonstrated we ended by decreasing the access to the device global memory and why that would impact the kernel.
 By doing this incremental approach we want to simplify the progression made so the reader can understand the differences easily.
 
 Slide 4:
@@ -12,7 +12,19 @@ The biggest challenge we faced was choosing how to demonstrate the different too
 
 Slide 5:
 
+This is a graph of our results when comparing our sequential CPU solution with our parallel GPU solution. On average our sequential solution took 40.36s and our parallel GPU solution had an execution time of 5.62. Meaning, just by using a GPU, we can see how much of a speed up we gain in the execution of our problem, cutting the execution time in more than 7 times. Of note, this is a simple GPU implementation using only parellization.
 
 Slide 6:
-In conclusion we provide a good introduction to GPGPU using a algorithm that heavely benefits from it, due to its complexity. The objective was meet where we did not want to be too basic in the explanations but also didn't want for the reader to be confused with the different options and improvements made.
-The paper could be improved by for example, using a version of the Floyd & Warshall algorithm where the cost of each transition in the graph would be represented by short instead of an integer. By doing so we could have one last implementation where we add SIMD (Single instruction multiple data), taking advantage of it and checking the results compared to the previous versions.
+
+When talking of our GPU implementations we can observe that every improvement we made cuts execution time, with our atomic solution taking an average execution time of 3.2s and our atomic solution with improved memory usage having an execution time of 2.67s. We gain a speedup of 1.76 when comparing a simple parallel solution with a solution using atomic, and a 1.19 speedup when we improve our memory usage on our atomic solution. While these speedups might seem small, when put in context, that being a speedup of an already very small execution time, ...
+These speedups when compared with our sequential solution they add up to a speedup of 12.6 and 15.1 when using atomic and improving the memory usage, respectively.
+
+%Falar de que se verifica que só paralelizando para gpu
+%que ja temos um grande speedup
+%mas que os nossos resultados mostram que o speedup ainda pode aumentar quase o dobro por exemplo acrescentando a sincronizacao
+%ou seja demonstramos que os improvements devem ser feitos
+%E falar que o mesmo pode ser verificado com maior detalhe no paper
+
+Slide 7:
+In conclusion we provide a good introduction to GPGPU using a algorithm that heavily benefits from it, due to its complexity. The objective was meet where we did not want to be too basic in the explanations but also didn't want for the reader to be confused with the different options and improvements made.
+The paper could be improved by for example, using a version of the Floyd Warshall algorithm where the cost of each transition in the graph would be represented by short instead of an integer. By doing so we could have one last implementation where we add SIMD (Single instruction multiple data), taking advantage of it and checking the results compared to the previous versions.
